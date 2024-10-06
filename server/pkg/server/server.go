@@ -5,6 +5,8 @@ import (
 	"log"
 	"net"
 	"pkg/shared"
+
+	// "pkg/shared"
 	"sync"
 )
 
@@ -75,8 +77,10 @@ func (t *TCP) acceptConnection(ctx context.Context) {
 				StickyMessage: bytes,
 			}
 
-			stickyBytes := sticky.MarshalBinary()
-			n, err := newConnection.Conn.Write(stickyBytes)
+			var stickyBytes shared.StickyBytes
+			stickyBytes = sticky.MarshalBinary()
+			n, err := stickyBytes.WriteTo(newConnection.Conn)
+			// n, err := newConnection.Conn.Write(stickyBytes)
 			if err != nil {
 				log.Printf("error occurred when trying to write to new conneciton: %v\n", err)
 				return
@@ -130,7 +134,7 @@ func (t *TCP) Start(ctx context.Context, wg *sync.WaitGroup) {
 	case <-ctx.Done():
 		log.Println("shutting down tcp server gracefully")
 		for _, connection := range t.Connections {
-			_, err := connection.Conn.Write([]byte{6})
+			_, err := connection.Conn.Write([]byte{1, 6})
 			if err != nil {
 				log.Printf("error writing to connection: %v\n", connection.Id)
 			}

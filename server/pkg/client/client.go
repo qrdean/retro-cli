@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"log"
 	"net"
+	"pkg/shared"
 )
 
 func Hey() string {
@@ -34,21 +35,46 @@ func ConnectAndRead(addr string) {
 
 		msg := buf[:n]
 		newReader := bytes.NewReader(msg)
-		var typ uint8
+		var version byte
+		err = binary.Read(newReader, binary.BigEndian, &version)
+		if err != nil {
+			log.Printf("%v\n", err)
+		}
+		log.Printf("version is %v\n", version)
+		var typ byte
 		err = binary.Read(newReader, binary.BigEndian, &typ)
 		if err != nil {
-			log.Println("%v\n", err)
+			log.Printf("%v\n", err)
 		}
-		log.Println("typ is %v\n", typ)
+		log.Printf("typ is %v\n", typ)
 
 		if typ == 6 {
 			log.Println("Received shutdown signal")
 			break
 		}
 
+		if typ == shared.StickyType {
+			var stickyBytes shared.StickyBytes = msg
+			ns, err := stickyBytes.ReadFrom(newReader)
+			if err != nil {
+				log.Printf("%v\n", err)
+			}
+
+			log.Printf("ns len %v\n", ns)
+			log.Printf("output to sticky bytes %v\n", stickyBytes)
+			sticky := shared.UnmarshalBinaryStick(stickyBytes)
+			log.Printf("Id: %v, topic id: %v, poster id:%v, votes: %v, sticky message: %v\n",
+				sticky.Id,
+				sticky.TopicId,
+				sticky.Votes,
+				sticky.PosterId,
+				string(sticky.StickyMessage[:]),
+			)
+		}
+
 		log.Printf("output from: %v\n", msg)
 
-		n, err = conn.Write([]byte{5})
+		n, err = conn.Write([]byte{1, 5})
 		if err != nil {
 			log.Println(err)
 		}

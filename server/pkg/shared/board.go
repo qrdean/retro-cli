@@ -8,20 +8,18 @@ import (
 	"unsafe"
 )
 
-var VERSION byte = 1
-
 const (
 	PointerType byte = iota + 1
-	TopicType byte = iota + 1
-	StickyType byte = iota + 1
+	TopicType
+	StickyType
 )
 
 type PointerBytes []byte
+
 func (m PointerBytes) Bytes() []byte  { return m }
 func (m PointerBytes) String() string { return string(m) }
 
 func (m PointerBytes) WriteTo(w io.Writer) (int64, error) {
-	// err := binary.Write(w, binary.BigEndian, VERSION)
 	err := binary.Write(w, binary.BigEndian, VERSION)
 	if err != nil {
 		return 0, err
@@ -65,7 +63,100 @@ func (m *PointerBytes) ReadFrom(r io.Reader) (int64, error) {
 }
 
 type TopicBytes []byte
+
+func (m TopicBytes) Bytes() []byte  { return m }
+func (m TopicBytes) String() string { return string(m) }
+
+func (m TopicBytes) WriteTo(w io.Writer) (int64, error) {
+	err := binary.Write(w, binary.BigEndian, VERSION)
+	if err != nil {
+		return 0, err
+	}
+	var n int64 = 1
+
+	err = binary.Write(w, binary.BigEndian, TopicType)
+	if err != nil {
+		return n, err
+	}
+	n += 1
+
+	err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	if err != nil {
+		return n, err
+	}
+
+	n += 4
+
+	o, err := w.Write(m)
+
+	return n + int64(o), err
+}
+
+func (m *TopicBytes) ReadFrom(r io.Reader) (int64, error) {
+	var size uint32
+	err := binary.Read(r, binary.BigEndian, &size)
+	if err != nil {
+		return 0, err
+	}
+	var n int64 = 4
+
+	if size > MaxPayloadSize {
+		return n, ErrMaxPayloadSize
+	}
+
+	*m = make([]byte, size)
+	o, err := r.Read(*m)
+
+	return n + int64(o), err
+}
+
 type StickyBytes []byte
+
+func (m StickyBytes) Bytes() []byte  { return m }
+func (m StickyBytes) String() string { return string(m) }
+
+func (m StickyBytes) WriteTo(w io.Writer) (int64, error) {
+	err := binary.Write(w, binary.BigEndian, VERSION)
+	if err != nil {
+		return 0, err
+	}
+	var n int64 = 1
+
+	err = binary.Write(w, binary.BigEndian, StickyType)
+	if err != nil {
+		return n, err
+	}
+	n += 1
+
+	err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	if err != nil {
+		return n, err
+	}
+
+	n += 4
+
+	o, err := w.Write(m)
+
+	return n + int64(o), err
+}
+
+func (m *StickyBytes) ReadFrom(r io.Reader) (int64, error) {
+	var size uint32
+	err := binary.Read(r, binary.BigEndian, &size)
+	if err != nil {
+		return 0, err
+	}
+	var n int64 = 4
+
+	if size > MaxPayloadSize {
+		return n, ErrMaxPayloadSize
+	}
+
+	*m = make([]byte, size)
+	o, err := r.Read(*m)
+
+	return n + int64(o), err
+}
 
 type Pointer struct {
 	PointerId uint32
