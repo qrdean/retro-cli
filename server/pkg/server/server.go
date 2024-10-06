@@ -4,9 +4,6 @@ import (
 	"context"
 	"log"
 	"net"
-	"pkg/shared"
-
-	// "pkg/shared"
 	"sync"
 )
 
@@ -51,9 +48,14 @@ func (t *TCP) acceptConnection(ctx context.Context) {
 	id := 0
 	for {
 		conn, err := t.Listener.Accept()
+		// select {
+		// case <-ctx.Done():
+		// 	log.Println("shutting down tcp server gracefully")
+		// 	break
+		// }
 		// log.Println(conn)
 		if err != nil {
-			log.Println(err)
+			log.Printf("error in accpet %v\n", err)
 			continue
 		}
 
@@ -63,42 +65,8 @@ func (t *TCP) acceptConnection(ctx context.Context) {
 			// Send msg
 			t.mutex.Lock()
 			newConnection := NewConnection(id, conn)
-			var bytes [255]byte
-			stringThing := []byte("Some Message")
-			if len(stringThing) < 255 {
-				copy(bytes[:len(stringThing)], stringThing)
-			} else {
-				log.Println("string isnt short")
-			}
-			// sticky := shared.Sticky{
-			// 	Id:            1,
-			// 	PosterId:      2,
-			// 	Votes:         6,
-			// 	StickyMessage: bytes,
-			// }
-			//
-			// var stickyBytes shared.StickyBytes
-			// stickyBytes = sticky.MarshalBinary()
-			// n, err := stickyBytes.WriteTo(newConnection.Conn)
 
-			// topic := shared.Topic{
-			// 	Id:     1,
-			// 	Header: bytes,
-			// }
-			//
-			// var topicBytes shared.TopicBytes
-			// topicBytes = topic.MarshalBinary()
-			// n, err := topicBytes.WriteTo(newConnection.Conn)
-
-			pointer := shared.Pointer {
-				PointerId: 1,
-			}
-
-			var pointerBytes shared.PointerBytes
-			pointerBytes = pointer.MarshalBinary()
-			n, err := pointerBytes.WriteTo(newConnection.Conn)
-
-			// n, err := newConnection.Conn.Write(stickyBytes)
+			n, err := newConnection.Conn.Write([]byte{1, 0})
 			if err != nil {
 				log.Printf("error occurred when trying to write to new conneciton: %v\n", err)
 				return

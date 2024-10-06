@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	// "pkg/server"
 	"unsafe"
 )
 
@@ -190,16 +189,16 @@ func (s Sticky) MarshalBinary() []byte {
 	return data
 }
 
-func UnmarshalBinaryStick(data []byte) Sticky {
-	datasize := len(data)
+func (s StickyBytes) UnmarshalBinaryStick() Sticky {
+	datasize := len(s)
 	// fmt.Printf("datasize %v\n", datasize)
 	var sticky Sticky
-	sticky.Id = uint32(binary.BigEndian.Uint32(data))
-	sticky.PosterId = uint32(binary.BigEndian.Uint32(data[4:]))
-	sticky.TopicId = uint32(binary.BigEndian.Uint32(data[8:]))
-	sticky.Votes = uint32(binary.BigEndian.Uint32(data[12:]))
-	fmt.Printf("msg %v\n", string(data[16:datasize]))
-	copy(sticky.StickyMessage[:], data[16:datasize])
+	sticky.Id = uint32(binary.BigEndian.Uint32(s))
+	sticky.PosterId = uint32(binary.BigEndian.Uint32(s[4:]))
+	sticky.TopicId = uint32(binary.BigEndian.Uint32(s[8:]))
+	sticky.Votes = uint32(binary.BigEndian.Uint32(s[12:]))
+	fmt.Printf("msg %v\n", string(s[16:datasize]))
+	copy(sticky.StickyMessage[:], s[16:datasize])
 	return sticky
 }
 
@@ -212,10 +211,10 @@ func (t Topic) MarshalBinary() []byte {
 	return data
 }
 
-func UnmarshalTopic(data []byte) Topic {
+func (t TopicBytes) UnmarshalTopic() Topic {
 	var topic Topic
-	topic.Id = uint32(binary.BigEndian.Uint32(data))
-	copy(topic.Header[:], data[4:HeaderSize])
+	topic.Id = uint32(binary.BigEndian.Uint32(t))
+	copy(topic.Header[:], t[4:HeaderSize])
 
 	return topic
 }
@@ -227,8 +226,8 @@ func (p Pointer) MarshalBinary() []byte {
 	return data
 }
 
-func UnmarshalPointer(data []byte) Pointer {
+func (p PointerBytes) UnmarshalPointer() Pointer {
 	var pointer Pointer
-	pointer.PointerId = uint32(binary.BigEndian.Uint32(data))
+	pointer.PointerId = uint32(binary.BigEndian.Uint32(p))
 	return pointer
 }

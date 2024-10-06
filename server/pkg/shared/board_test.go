@@ -19,9 +19,10 @@ func TestBoard(t *testing.T) {
 			StickyMessage: bytes,
 		}
 
-		data := sticky.MarshalBinary()
+		var data StickyBytes
+		data = sticky.MarshalBinary()
 
-		someSticky := UnmarshalBinaryStick(data)
+		someSticky := data.UnmarshalBinaryStick()
 		t.Logf("id: %v, posterid: %v, votes: %v, sticky message: %v\n", someSticky.Id, someSticky.PosterId, someSticky.Votes, string(someSticky.StickyMessage[:]))
 	})
 
@@ -36,21 +37,22 @@ func TestBoard(t *testing.T) {
 			Header: newBytes,
 		}
 
-		data := topic.MarshalBinary()
+		var data TopicBytes
+		data = topic.MarshalBinary()
 
-		someTopic := UnmarshalTopic(data)
+		someTopic := data.UnmarshalTopic()
 		t.Logf("Id: %v, header: %v", someTopic.Id, string(someTopic.Header[:]))
 	})
 
 	t.Run("marshal and unmarshal Pointer", func(t *testing.T) {
-
 		pointer := Pointer{
-			PointerId:     1,
+			PointerId: 1,
 		}
 
-		data := pointer.MarshalBinary()
+		var data PointerBytes
+		data = pointer.MarshalBinary()
 
-		somePointer := UnmarshalPointer(data)
+		somePointer := data.UnmarshalPointer()
 		t.Logf("Id: %v", somePointer.PointerId)
 	})
 }
