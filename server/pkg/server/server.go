@@ -70,16 +70,34 @@ func (t *TCP) acceptConnection(ctx context.Context) {
 			} else {
 				log.Println("string isnt short")
 			}
-			sticky := shared.Sticky{
-				Id:            1,
-				PosterId:      2,
-				Votes:         6,
-				StickyMessage: bytes,
+			// sticky := shared.Sticky{
+			// 	Id:            1,
+			// 	PosterId:      2,
+			// 	Votes:         6,
+			// 	StickyMessage: bytes,
+			// }
+			//
+			// var stickyBytes shared.StickyBytes
+			// stickyBytes = sticky.MarshalBinary()
+			// n, err := stickyBytes.WriteTo(newConnection.Conn)
+
+			// topic := shared.Topic{
+			// 	Id:     1,
+			// 	Header: bytes,
+			// }
+			//
+			// var topicBytes shared.TopicBytes
+			// topicBytes = topic.MarshalBinary()
+			// n, err := topicBytes.WriteTo(newConnection.Conn)
+
+			pointer := shared.Pointer {
+				PointerId: 1,
 			}
 
-			var stickyBytes shared.StickyBytes
-			stickyBytes = sticky.MarshalBinary()
-			n, err := stickyBytes.WriteTo(newConnection.Conn)
+			var pointerBytes shared.PointerBytes
+			pointerBytes = pointer.MarshalBinary()
+			n, err := pointerBytes.WriteTo(newConnection.Conn)
+
 			// n, err := newConnection.Conn.Write(stickyBytes)
 			if err != nil {
 				log.Printf("error occurred when trying to write to new conneciton: %v\n", err)

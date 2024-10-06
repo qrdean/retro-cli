@@ -53,6 +53,37 @@ func ConnectAndRead(addr string) {
 			break
 		}
 
+		if typ == shared.PointerType {
+			var pointerBytes shared.PointerBytes = msg
+			ns, err := pointerBytes.ReadFrom(newReader)
+			if err != nil {
+				log.Printf("%v\n", err)
+			}
+
+			log.Printf("ns len %v\n", ns)
+			log.Printf("output to pointer bytes %v\n", pointerBytes)
+			pointer := shared.UnmarshalPointer(pointerBytes)
+			log.Printf("Id: %v\n",
+				pointer.PointerId,
+			)
+		}
+
+		if typ == shared.TopicType {
+			var topicBytes shared.TopicBytes = msg
+			ns, err := topicBytes.ReadFrom(newReader)
+			if err != nil {
+				log.Printf("%v\n", err)
+			}
+
+			log.Printf("ns len %v\n", ns)
+			log.Printf("output to topic bytes %v\n", topicBytes)
+			topic := shared.UnmarshalTopic(topicBytes)
+			log.Printf("Id: %v, topic message: %v\n",
+				topic.Id,
+				string(topic.Header[:]),
+			)
+		}
+
 		if typ == shared.StickyType {
 			var stickyBytes shared.StickyBytes = msg
 			ns, err := stickyBytes.ReadFrom(newReader)
