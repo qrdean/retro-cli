@@ -13,6 +13,8 @@ const (
 	StickyType
 )
 
+// This feels like a lot of boiler plate evertime we want to read and write.
+// Wonder if there is a way to just get bytes and send the type into this method
 type PointerBytes []byte
 
 func (m PointerBytes) Bytes() []byte  { return m }

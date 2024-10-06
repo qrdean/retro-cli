@@ -1,11 +1,15 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"net"
+	"os"
 	"pkg/shared"
+	"strings"
 )
 
 func Hey() string {
@@ -25,6 +29,22 @@ func ConnectAndRead(addr string) {
 		log.Fatal(err)
 	}
 	defer conn.Close()
+
+	go func() {
+		for {
+			msg, typ := getText()
+			switch typ {
+			case 0:
+				continue
+			case shared.AddStickyType:
+				println(msg)
+			case shared.VoteStickyType:
+				println(msg)
+			case shared.QuitType:
+				println(msg)
+			}
+		}
+	}()
 
 	for {
 		buf := make([]byte, 1024*4)
@@ -46,8 +66,32 @@ func ConnectAndRead(addr string) {
 		if err != nil {
 			log.Println(err)
 		}
-		log.Printf("wrote x numb of bytes %v\n", n)
+		// log.Printf("wrote x numb of bytes %v\n", n)
 	}
+}
+
+func getText() (string, byte) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Enter text:")
+	text, _ := reader.ReadString('\n')
+	if strings.Contains(strings.ToLower(text), "add") {
+		_, after, _ := strings.Cut(text, "add")
+		return strings.TrimSpace(after), shared.AddStickyType
+	}
+
+	if strings.Contains(strings.ToLower(text), "vote") {
+		fmt.Println("vote")
+		_, after, _ := strings.Cut(text, "vote")
+		return strings.TrimSpace(after), shared.VoteStickyType
+	}
+
+	if strings.Contains(strings.ToLower(text), "quit") {
+		fmt.Println("quit")
+		_, after, _ := strings.Cut(text, "quit")
+		return strings.TrimSpace(after), shared.QuitType
+	}
+	var nothing byte = 0
+	return "", nothing
 }
 
 func handleMessage(buf []byte, n int) (bool, error) {
@@ -58,13 +102,13 @@ func handleMessage(buf []byte, n int) (bool, error) {
 	if err != nil {
 		log.Printf("%v\n", err)
 	}
-	log.Printf("version is %v\n", version)
+	// log.Printf("version is %v\n", version)
 	var typ byte
 	err = binary.Read(newReader, binary.BigEndian, &typ)
 	if err != nil {
 		log.Printf("%v\n", err)
 	}
-	log.Printf("typ is %v\n", typ)
+	// log.Printf("typ is %v\n", typ)
 
 	switch typ {
 	case 6:
@@ -72,28 +116,28 @@ func handleMessage(buf []byte, n int) (bool, error) {
 		return true, nil
 	case shared.PointerType:
 		var pointerBytes shared.PointerBytes = msg
-		ns, err := pointerBytes.ReadFrom(newReader)
+		_, err := pointerBytes.ReadFrom(newReader)
 		if err != nil {
 			log.Printf("%v\n", err)
 			return true, err
 		}
 
-		log.Printf("ns len %v\n", ns)
-		log.Printf("output to pointer bytes %v\n", pointerBytes)
+		// log.Printf("ns len %v\n", ns)
+		// log.Printf("output to pointer bytes %v\n", pointerBytes)
 		pointer := pointerBytes.UnmarshalPointer()
 		log.Printf("Id: %v\n",
 			pointer.PointerId,
 		)
 	case shared.TopicType:
 		var topicBytes shared.TopicBytes = msg
-		ns, err := topicBytes.ReadFrom(newReader)
+		_, err := topicBytes.ReadFrom(newReader)
 		if err != nil {
 			log.Printf("%v\n", err)
 			return true, err
 		}
 
-		log.Printf("ns len %v\n", ns)
-		log.Printf("output to topic bytes %v\n", topicBytes)
+		// log.Printf("ns len %v\n", ns)
+		// log.Printf("output to topic bytes %v\n", topicBytes)
 		topic := topicBytes.UnmarshalTopic()
 		log.Printf("Id: %v, topic message: %v\n",
 			topic.Id,
@@ -101,14 +145,14 @@ func handleMessage(buf []byte, n int) (bool, error) {
 		)
 	case shared.StickyType:
 		var stickyBytes shared.StickyBytes = msg
-		ns, err := stickyBytes.ReadFrom(newReader)
+		_, err := stickyBytes.ReadFrom(newReader)
 		if err != nil {
 			log.Printf("%v\n", err)
 			return true, err
 		}
 
-		log.Printf("ns len %v\n", ns)
-		log.Printf("output to sticky bytes %v\n", stickyBytes)
+		// log.Printf("ns len %v\n", ns)
+		// log.Printf("output to sticky bytes %v\n", stickyBytes)
 		sticky := stickyBytes.UnmarshalBinaryStick()
 		log.Printf("Id: %v, topic id: %v, poster id:%v, votes: %v, sticky message: %v\n",
 			sticky.Id,
@@ -121,6 +165,6 @@ func handleMessage(buf []byte, n int) (bool, error) {
 		log.Printf("not a valid action %v\n", typ)
 	}
 
-	log.Printf("output from: %v\n", msg)
+	// log.Printf("output from: %v\n", msg)
 	return false, nil
 }
