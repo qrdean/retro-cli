@@ -21,28 +21,37 @@ func (m PointerBytes) Bytes() []byte  { return m }
 func (m PointerBytes) String() string { return string(m) }
 
 func (m PointerBytes) WriteTo(w io.Writer) (int64, error) {
-	err := binary.Write(w, binary.BigEndian, VERSION)
+	var bytesToWrite []byte
+	bytesToWrite, err := binary.Append(bytesToWrite, binary.BigEndian, VERSION)
+	// err := binary.Write(w, binary.BigEndian, VERSION)
 	if err != nil {
 		return 0, err
 	}
 	var n int64 = 1
 
-	err = binary.Write(w, binary.BigEndian, PointerType)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, PointerType)
+	// err = binary.Write(w, binary.BigEndian, PointerType)
 	if err != nil {
 		return n, err
 	}
 	n += 1
 
-	err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, uint32(len(m)))
+	// err = binary.Write(w, binary.BigEndian, uint32(len(m)))
 	if err != nil {
 		return n, err
 	}
 
 	n += 4
 
-	o, err := w.Write(m)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, m)
 
-	return n + int64(o), err
+	o, err := w.Write(bytesToWrite)
+	if err != nil {
+		return n, err
+	}
+
+	return int64(o), err
 }
 
 func (m *PointerBytes) ReadFrom(r io.Reader) (int64, error) {
@@ -69,18 +78,22 @@ func (m TopicBytes) Bytes() []byte  { return m }
 func (m TopicBytes) String() string { return string(m) }
 
 func (m TopicBytes) WriteTo(w io.Writer) (int64, error) {
-	err := binary.Write(w, binary.BigEndian, VERSION)
+	var bytesToWrite []byte
+	bytesToWrite, err := binary.Append(bytesToWrite, binary.BigEndian, VERSION)
+	// err := binary.Write(w, binary.BigEndian, VERSION)
 	if err != nil {
 		return 0, err
 	}
 	var n int64 = 1
 
-	err = binary.Write(w, binary.BigEndian, TopicType)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, TopicType)
+	// err = binary.Write(w, binary.BigEndian, TopicType)
 	if err != nil {
 		return n, err
 	}
 	n += 1
 
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, uint32(len(m)))
 	err = binary.Write(w, binary.BigEndian, uint32(len(m)))
 	if err != nil {
 		return n, err
@@ -88,7 +101,11 @@ func (m TopicBytes) WriteTo(w io.Writer) (int64, error) {
 
 	n += 4
 
-	o, err := w.Write(m)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, m)
+	o, err := w.Write(bytesToWrite)
+	if err != nil {
+		return n, err
+	}
 
 	return n + int64(o), err
 }
@@ -117,26 +134,34 @@ func (m StickyBytes) Bytes() []byte  { return m }
 func (m StickyBytes) String() string { return string(m) }
 
 func (m StickyBytes) WriteTo(w io.Writer) (int64, error) {
-	err := binary.Write(w, binary.BigEndian, VERSION)
+	var bytesToWrite []byte
+	bytesToWrite, err := binary.Append(bytesToWrite, binary.BigEndian, VERSION)
+	// err := binary.Write(w, binary.BigEndian, VERSION)
 	if err != nil {
 		return 0, err
 	}
 	var n int64 = 1
 
-	err = binary.Write(w, binary.BigEndian, StickyType)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, StickyType)
+	// err = binary.Write(w, binary.BigEndian, StickyType)
 	if err != nil {
 		return n, err
 	}
 	n += 1
 
-	err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	// err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, uint32(len(m)))
 	if err != nil {
 		return n, err
 	}
 
 	n += 4
 
-	o, err := w.Write(m)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, m)
+	o, err := w.Write(bytesToWrite)
+	if err != nil {
+		return n, err
+	}
 
 	return n + int64(o), err
 }

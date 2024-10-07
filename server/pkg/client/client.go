@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"pkg/shared"
+	"strconv"
 	"strings"
 )
 
@@ -52,8 +53,41 @@ func ConnectAndRead(addr string) {
 				fmt.Printf("successfully wrote %v bytes %v\n", n, stickyBytes[:n-8])
 			case shared.VoteStickyType:
 				println(msg)
+				int, err := strconv.Atoi(msg)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+				voteSticky := shared.NewVoteSticky(uint32(int))
+				var voteBytes shared.VoteBytes = voteSticky.MarshalBinary()
+				n, err := voteBytes.WriteTo(conn)
+				if err != nil {
+					fmt.Println(err)
+				}
+				fmt.Printf("wrote %v bytes %v\n", n, voteBytes[:])
 			case shared.QuitType:
 				println(msg)
+				quit := shared.NewQuit(1)
+				var quitBytes shared.QuitBytes = quit.MarshalBinary()
+				n, err := quitBytes.WriteTo(conn)
+				if err != nil {
+					fmt.Println(err)
+				}
+				fmt.Println("wrote %v bytes %v\n", n, quitBytes[:])
+			case shared.PointToType:
+				println(msg)
+				int, err := strconv.Atoi(msg)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+				pointTo := shared.NewPointToSticky(uint32(int))
+				var pointToBytes shared.PointToStickyBytes = pointTo.MarshalBinary()
+				n, err := pointToBytes.WriteTo(conn)
+				if err != nil {
+					fmt.Println(err)
+				}
+				fmt.Printf("wrote %v bytes %v\n", n, pointToBytes[:])
 			}
 		}
 	}()
@@ -102,6 +136,13 @@ func getText() (string, byte) {
 		_, after, _ := strings.Cut(text, "quit")
 		return strings.TrimSpace(after), shared.QuitType
 	}
+
+	if strings.Contains(strings.ToLower(text), "point") {
+		fmt.Println("point")
+		_, after, _ := strings.Cut(text, "point")
+		return strings.TrimSpace(after), shared.PointToType
+	}
+
 	var nothing byte = 0
 	return "", nothing
 }
@@ -123,6 +164,9 @@ func handleMessage(buf []byte, n int) (bool, error) {
 	// log.Printf("typ is %v\n", typ)
 
 	switch typ {
+	case 0:
+		log.Println("connection closed")
+		return true, nil
 	case 6:
 		log.Println("Received shutdown signal")
 		return true, nil

@@ -16,6 +16,7 @@ const (
 	AddStickyType byte = iota + 1
 	VoteStickyType
 	QuitType
+	PointToType
 
 	MaxPayloadSize = 10 << 20 // 10 MB
 )
@@ -59,10 +60,28 @@ type VoteSticky struct {
 	TopicId uint32
 }
 
+func NewVoteSticky(topicId uint32) VoteSticky {
+	return VoteSticky{TopicId: topicId}
+}
+
 type QuitBytes []byte
 
 type Quit struct {
 	ConnectionId uint32
+}
+
+func NewQuit(connectionId uint32) Quit {
+	return Quit{ConnectionId: connectionId}
+}
+
+type PointToStickyBytes []byte
+
+type PointToSticky struct {
+	StickyId uint32
+}
+
+func NewPointToSticky(stickyId uint32) PointToSticky {
+	return PointToSticky{StickyId: stickyId}
 }
 
 func (m AddStickyBytes) Bytes() []byte  { return m }
@@ -281,4 +300,76 @@ func (b QuitBytes) UnmarshalBinary() Quit {
 	var quit Quit
 	quit.ConnectionId = uint32(binary.BigEndian.Uint32(b))
 	return quit
+}
+
+func (m PointToStickyBytes) Bytes() []byte  { return m }
+func (m PointToStickyBytes) String() string { return string(m) }
+
+func (m PointToStickyBytes) WriteTo(w io.Writer) (int64, error) {
+	var bytesToWrite []byte
+	bytesToWrite, err := binary.Append(bytesToWrite, binary.BigEndian, VERSION)
+	// err := binary.Write(w, binary.BigEndian, VERSION)
+	if err != nil {
+		return 0, err
+	}
+	var n int64 = 1
+
+	// err = binary.Write(w, binary.BigEndian, AddStickyType)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, PointToType)
+	if err != nil {
+		return n, err
+	}
+	n += 1
+
+	// err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, uint32(len(m)))
+	if err != nil {
+		return n, err
+	}
+
+	n += 4
+
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, m)
+
+	o, err := w.Write(bytesToWrite)
+	if err != nil {
+		return n, err
+	}
+
+	return int64(o), err
+}
+
+func (m *PointToStickyBytes) ReadFrom(r io.Reader) (int64, error) {
+	var size uint32
+	err := binary.Read(r, binary.BigEndian, &size)
+	if err != nil {
+		log.Printf("error reading size: %v\n", err)
+		return 0, err
+	}
+	var n int64 = 4
+
+	if size > MaxPayloadSize {
+		return n, ErrMaxPayloadSize
+	}
+
+	*m = make([]byte, size)
+	o, err := r.Read(*m)
+	if err != nil {
+		return n, err
+	}
+
+	return n + int64(o), err
+}
+
+func (p PointToSticky) MarshalBinary() []byte {
+	datasize := int(unsafe.Sizeof(p))
+	data := make([]byte, datasize)
+	binary.BigEndian.PutUint32(data, p.StickyId)
+	return data
+}
+
+func (b PointToStickyBytes) UnmarshalBinary() PointToSticky {
+	var p PointToSticky
+	p.StickyId = uint32(binary.BigEndian.Uint32(b))
+	return p
 }
