@@ -158,8 +158,8 @@ func (t *TCP) readConnection(connection Connection) {
 			topic, topicIdx, err := t.Board.FindTopic(addSticky.TopicId)
 			if err != nil {
 				log.Println(err)
-				break	
-			} 
+				break
+			}
 			newSticky := NewSticky(t.Board.StickyIdCounter, addSticky.PosterId, 0, string(addSticky.StickyMessage[:]))
 			t.Board.StickyIdCounter++
 			t.Board.Topics[topicIdx] = topic.AddNewSticky(newSticky)
@@ -238,6 +238,12 @@ func (t *TCP) readConnection(connection Connection) {
 			pointTo := pointToBytes.UnmarshalBinary()
 			log.Printf("point to sticky id %v\n", pointTo.StickyId)
 			log.Println("got point to type")
+			found := t.Board.PointToSticky(pointTo.StickyId)
+			if !found {
+				log.Println("not found")
+			} else {
+				t.Board.PointToStickyId = pointTo.StickyId
+			}
 			// log.Println(msg)
 
 		default:
@@ -274,7 +280,7 @@ func (t *TCP) SendUpdatedBoard() {
 	for _, connection := range t.Connections {
 		for _, topic := range topicMsgs {
 			msg := topic.MarshalBinary()
-            log.Println(msg)
+			log.Println(msg)
 			var topicBytes shared.TopicBytes = msg
 			n, err := topicBytes.WriteTo(connection.Conn)
 			if err != nil {
@@ -295,7 +301,16 @@ func (t *TCP) SendUpdatedBoard() {
 			log.Println(stickyBytes[:n-6])
 			log.Printf("sent %v\n", sticky.Id)
 		}
-    	log.Printf("sent to connection %v\n", connection.Id)
+		log.Printf("sent to connection %v\n", connection.Id)
+
+		pointer := shared.Pointer{PointerId: t.Board.PointToStickyId}
+		var pointerBytes shared.PointerBytes = pointer.MarshalBinary()
+		n, err := pointerBytes.WriteTo(connection.Conn)
+		if err != nil {
+			log.Println(err)
+		}
+		log.Println(n)
+		log.Printf("sent points %v\n", t.Board.PointToStickyId)
 	}
 	t.mutex.RUnlock()
 }

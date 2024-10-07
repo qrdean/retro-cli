@@ -66,7 +66,7 @@ func (b Board) FindSticky(stickyId uint32) (Sticky, int, int, error) {
 	return Sticky{}, -1, -1, errors.New("sticky not found")
 }
 
-func (b Board) PointToSticky(stickyId uint32) (uint32, error) {
+func (b Board) PointToSticky(stickyId uint32) bool {
 	found := false
 	for _, topic := range b.Topics {
 		_, _, err := topic.findSticky(stickyId)
@@ -75,12 +75,7 @@ func (b Board) PointToSticky(stickyId uint32) (uint32, error) {
 		}
 		found = true
 	}
-	if found {
-		b.PointToStickyId = stickyId
-		return stickyId, nil
-	} else {
-		return uint32(0), errors.New("sticky not found")
-	}
+	return found
 }
 
 func (b Board) ToBoardMessages() ([]shared.Topic, []shared.Sticky, error) {
