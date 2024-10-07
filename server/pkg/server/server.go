@@ -100,16 +100,6 @@ func (t *TCP) acceptConnection(ctx context.Context) {
 func (t *TCP) readConnection(connection Connection) {
 	newReader := bufio.NewReader(connection.Conn)
 	for {
-		// log.Println("inside read connection")
-		// buf := make([]byte, 1024*4)
-		// n, err := connection.Conn.Read(buf)
-		// if err != nil {
-		// 	log.Printf("error reading buffer: %v\n", err)
-		// }
-		// log.Println(buf[:n])
-		// msg := buf[:n]
-		// log.Println(msg)
-		// newReader := bytes.NewReader(msg)
 		var version byte
 		err := binary.Read(newReader, binary.BigEndian, &version)
 		if err != nil {
@@ -124,7 +114,6 @@ func (t *TCP) readConnection(connection Connection) {
 			log.Printf("version mismatch we should break the connection")
 			break
 		}
-		// log.Printf("version is %v\n", version)
 		var typ byte
 		err = binary.Read(newReader, binary.BigEndian, &typ)
 		if err != nil {
@@ -163,7 +152,6 @@ func (t *TCP) readConnection(connection Connection) {
 			newSticky := NewSticky(t.Board.StickyIdCounter, addSticky.PosterId, 0, string(addSticky.StickyMessage[:]))
 			t.Board.StickyIdCounter++
 			t.Board.Topics[topicIdx] = topic.AddNewSticky(newSticky)
-			// log.Println(msg)
 
 		case shared.VoteStickyType:
 			var voteBytes shared.VoteBytes //= msg
@@ -190,7 +178,6 @@ func (t *TCP) readConnection(connection Connection) {
 			sticky = sticky.VoteForSticky()
 			t.Board.Topics[topicIdx].Stickies[stickyIdx] = sticky
 			log.Println(sticky.Votes)
-			// log.Println(msg)
 
 		case shared.QuitType:
 			var quitBytes shared.QuitBytes //= msg
@@ -221,7 +208,6 @@ func (t *TCP) readConnection(connection Connection) {
 					break
 				}
 			}
-			// log.Println(msg)
 
 		case shared.PointToType:
 			var pointToBytes shared.PointToStickyBytes //= msg
@@ -244,7 +230,6 @@ func (t *TCP) readConnection(connection Connection) {
 			} else {
 				t.Board.PointToStickyId = pointTo.StickyId
 			}
-			// log.Println(msg)
 
 		default:
 			log.Printf("got undefined typ: %v\n", typ)
