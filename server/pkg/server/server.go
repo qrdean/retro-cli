@@ -1,7 +1,8 @@
 package server
 
 import (
-	"bytes"
+	"bufio"
+	// "bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -24,6 +25,7 @@ type Connection struct {
 type TCP struct {
 	Connections []Connection
 	Listener    net.Listener
+	Board       Board
 	mutex       sync.RWMutex
 	Incoming    chan []byte
 }
@@ -34,9 +36,15 @@ func NewTcpServer(addr string) TCP {
 		log.Fatalf("%v\n", err)
 	}
 
+	log.Println("before creation")
+	// board := createEmptyTopicBoardStateState()
+	board := createStickyTopicBoardStateState()
+	log.Println(board)
+
 	return TCP{
 		Connections: []Connection{},
 		Listener:    listener,
+		Board:       board,
 		mutex:       sync.RWMutex{},
 		Incoming:    make(chan []byte),
 	}
@@ -90,19 +98,20 @@ func (t *TCP) acceptConnection(ctx context.Context) {
 }
 
 func (t *TCP) readConnection(connection Connection) {
+	newReader := bufio.NewReader(connection.Conn)
 	for {
-		log.Println("inside read connection")
-		buf := make([]byte, 1024*4)
-		n, err := connection.Conn.Read(buf)
-		if err != nil {
-			log.Printf("error reading buffer: %v\n", err)
-		}
+		// log.Println("inside read connection")
+		// buf := make([]byte, 1024*4)
+		// n, err := connection.Conn.Read(buf)
+		// if err != nil {
+		// 	log.Printf("error reading buffer: %v\n", err)
+		// }
 		// log.Println(buf[:n])
-		msg := buf[:n]
-		log.Println(msg)
-		newReader := bytes.NewReader(msg)
+		// msg := buf[:n]
+		// log.Println(msg)
+		// newReader := bytes.NewReader(msg)
 		var version byte
-		err = binary.Read(newReader, binary.BigEndian, &version)
+		err := binary.Read(newReader, binary.BigEndian, &version)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				log.Printf("socket received EOF %v\n", err)
@@ -130,7 +139,7 @@ func (t *TCP) readConnection(connection Connection) {
 		foundAndBreak := false
 		switch typ {
 		case shared.AddStickyType:
-			var stickyBytes shared.AddStickyBytes = msg
+			var stickyBytes shared.AddStickyBytes // = msg
 			_, err := stickyBytes.ReadFrom(newReader)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
@@ -146,9 +155,18 @@ func (t *TCP) readConnection(connection Connection) {
 			log.Printf("topicId %v\n", addSticky.TopicId)
 			log.Println(string(addSticky.StickyMessage[:]))
 			log.Println("got sticky type")
-			log.Println(msg)
+			topic, topicIdx, err := t.Board.FindTopic(addSticky.TopicId)
+			if err != nil {
+				log.Println(err)
+				break	
+			} 
+			newSticky := NewSticky(t.Board.StickyIdCounter, addSticky.PosterId, 0, string(addSticky.StickyMessage[:]))
+			t.Board.StickyIdCounter++
+			t.Board.Topics[topicIdx] = topic.AddNewSticky(newSticky)
+			// log.Println(msg)
+
 		case shared.VoteStickyType:
-			var voteBytes shared.VoteBytes = msg
+			var voteBytes shared.VoteBytes //= msg
 			_, err := voteBytes.ReadFrom(newReader)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
@@ -160,11 +178,22 @@ func (t *TCP) readConnection(connection Connection) {
 			}
 
 			voteSticky := voteBytes.UnmarshalBinary()
-			log.Printf("vote topic id %v\n", voteSticky.TopicId)
+			log.Printf("vote sticky id %v\n", voteSticky.StickyId)
 			log.Println("got vote type")
-			log.Println(msg)
+			sticky, stickyIdx, topicIdx, err := t.Board.FindSticky(voteSticky.StickyId)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+			log.Println(sticky)
+			log.Println(sticky.Votes)
+			sticky = sticky.VoteForSticky()
+			t.Board.Topics[topicIdx].Stickies[stickyIdx] = sticky
+			log.Println(sticky.Votes)
+			// log.Println(msg)
+
 		case shared.QuitType:
-			var quitBytes shared.QuitBytes = msg
+			var quitBytes shared.QuitBytes //= msg
 			_, err := quitBytes.ReadFrom(newReader)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
@@ -189,11 +218,13 @@ func (t *TCP) readConnection(connection Connection) {
 					t.Connections = t.Connections[:len(t.Connections)-1]
 					log.Println("removed connection from list")
 					foundAndBreak = true
+					break
 				}
 			}
-			log.Println(msg)
+			// log.Println(msg)
+
 		case shared.PointToType:
-			var pointToBytes shared.PointToStickyBytes = msg
+			var pointToBytes shared.PointToStickyBytes //= msg
 			_, err := pointToBytes.ReadFrom(newReader)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
@@ -207,13 +238,17 @@ func (t *TCP) readConnection(connection Connection) {
 			pointTo := pointToBytes.UnmarshalBinary()
 			log.Printf("point to sticky id %v\n", pointTo.StickyId)
 			log.Println("got point to type")
-			log.Println(msg)
+			// log.Println(msg)
+
 		default:
 			log.Printf("got undefined typ: %v\n", typ)
 		}
+
 		if foundAndBreak {
 			break
 		}
+
+		t.SendUpdatedBoard()
 
 		// TODO: We need to trigger off which type we are passing in so we can
 		// update the client based on the insert/vote/quit here
@@ -225,6 +260,44 @@ func (t *TCP) readConnection(connection Connection) {
 		// t.Incoming <- buf[:n]
 		// log.Println(<-t.Incoming)
 	}
+}
+
+func (t *TCP) SendUpdatedBoard() {
+	t.mutex.RLock()
+
+	topicMsgs, stickyMsgs, err := t.Board.ToBoardMessages()
+	if err != nil {
+		log.Println("error compiling board messages", err)
+		return
+	}
+
+	for _, connection := range t.Connections {
+		for _, topic := range topicMsgs {
+			msg := topic.MarshalBinary()
+            log.Println(msg)
+			var topicBytes shared.TopicBytes = msg
+			n, err := topicBytes.WriteTo(connection.Conn)
+			if err != nil {
+				log.Println(err)
+			}
+			log.Println(n)
+			log.Println(topicBytes[:n-6])
+			log.Printf("sent id %v\n", topic.Id)
+		}
+
+		for _, sticky := range stickyMsgs {
+			var stickyBytes shared.StickyBytes = sticky.MarshalBinary()
+			n, err := stickyBytes.WriteTo(connection.Conn)
+			if err != nil {
+				log.Println(err)
+			}
+			log.Println(n)
+			log.Println(stickyBytes[:n-6])
+			log.Printf("sent %v\n", sticky.Id)
+		}
+    	log.Printf("sent to connection %v\n", connection.Id)
+	}
+	t.mutex.RUnlock()
 }
 
 // Change to an actual payload but bytes for now

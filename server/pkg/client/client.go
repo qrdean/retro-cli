@@ -2,9 +2,10 @@ package client
 
 import (
 	"bufio"
-	"bytes"
+	// "bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -92,14 +93,17 @@ func ConnectAndRead(addr string) {
 		}
 	}()
 
+	// buf := make([]byte, 1024*4)
+	reader := bufio.NewReader(conn)
 	for {
-		buf := make([]byte, 1024*4)
-		n, err := conn.Read(buf)
-		if err != nil {
-			log.Println(err)
-		}
+		// log.Println("reading")
+		// n, err := conn.Read(buf)
+		// if err != nil {
+		// 	log.Println(err)
+		// }
 
-		weBreak, err := handleMessage(buf, n)
+		// weBreak, err := handleMessage(buf, n)
+		weBreak, err := handleMessage(reader)
 		if err != nil {
 			log.Printf("error: %v\n", err)
 		}
@@ -147,9 +151,11 @@ func getText() (string, byte) {
 	return "", nothing
 }
 
-func handleMessage(buf []byte, n int) (bool, error) {
-	msg := buf[:n]
-	newReader := bytes.NewReader(msg)
+// func handleMessage(buf []byte, n int) (bool, error) {
+func handleMessage(newReader io.Reader) (bool, error) {
+	log.Println("handleing")
+	// msg := buf[:n]
+	// newReader := bytes.NewReader(msg)
 	var version byte
 	err := binary.Read(newReader, binary.BigEndian, &version)
 	if err != nil {
@@ -171,7 +177,8 @@ func handleMessage(buf []byte, n int) (bool, error) {
 		log.Println("Received shutdown signal")
 		return true, nil
 	case shared.PointerType:
-		var pointerBytes shared.PointerBytes = msg
+		// var pointerBytes shared.PointerBytes = msg
+		var pointerBytes shared.PointerBytes
 		_, err := pointerBytes.ReadFrom(newReader)
 		if err != nil {
 			log.Printf("%v\n", err)
@@ -185,7 +192,8 @@ func handleMessage(buf []byte, n int) (bool, error) {
 			pointer.PointerId,
 		)
 	case shared.TopicType:
-		var topicBytes shared.TopicBytes = msg
+		// var topicBytes shared.TopicBytes = msg
+		var topicBytes shared.TopicBytes
 		_, err := topicBytes.ReadFrom(newReader)
 		if err != nil {
 			log.Printf("%v\n", err)
@@ -200,7 +208,8 @@ func handleMessage(buf []byte, n int) (bool, error) {
 			string(topic.Header[:]),
 		)
 	case shared.StickyType:
-		var stickyBytes shared.StickyBytes = msg
+		// var stickyBytes shared.StickyBytes = msg
+		var stickyBytes shared.StickyBytes
 		_, err := stickyBytes.ReadFrom(newReader)
 		if err != nil {
 			log.Printf("%v\n", err)
@@ -213,8 +222,8 @@ func handleMessage(buf []byte, n int) (bool, error) {
 		log.Printf("Id: %v, topic id: %v, poster id:%v, votes: %v, sticky message: %v\n",
 			sticky.Id,
 			sticky.TopicId,
-			sticky.Votes,
 			sticky.PosterId,
+			sticky.Votes,
 			string(sticky.StickyMessage[:]),
 		)
 	default:

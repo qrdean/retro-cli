@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"unsafe"
 )
 
@@ -94,7 +95,7 @@ func (m TopicBytes) WriteTo(w io.Writer) (int64, error) {
 	n += 1
 
 	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, uint32(len(m)))
-	err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	// err = binary.Write(w, binary.BigEndian, uint32(len(m)))
 	if err != nil {
 		return n, err
 	}
@@ -107,7 +108,7 @@ func (m TopicBytes) WriteTo(w io.Writer) (int64, error) {
 		return n, err
 	}
 
-	return n + int64(o), err
+	return int64(o), err
 }
 
 func (m *TopicBytes) ReadFrom(r io.Reader) (int64, error) {
@@ -163,7 +164,7 @@ func (m StickyBytes) WriteTo(w io.Writer) (int64, error) {
 		return n, err
 	}
 
-	return n + int64(o), err
+	return int64(o), err
 }
 
 func (m *StickyBytes) ReadFrom(r io.Reader) (int64, error) {
@@ -205,6 +206,26 @@ type Sticky struct {
 	StickyMessage [StickyMessageSize]byte
 }
 
+func NewSticky(id, posterId, topicId, votes uint32, msg string) (Sticky, error) {
+	var bytes [255]byte
+	stringThing := []byte(msg)
+	if len(stringThing) <= 255 {
+		copy(bytes[:len(stringThing)], stringThing)
+	} else {
+		// return Sticky{}, errors.New("msg too long")
+		log.Printf("too long %v", len(stringThing))
+		copy(bytes[:], stringThing)
+	}
+
+	return Sticky{
+		Id:            id,
+		PosterId:      posterId,
+		TopicId:       topicId,
+		Votes:         votes,
+		StickyMessage: bytes,
+	}, nil
+}
+
 func (s Sticky) MarshalBinary() []byte {
 	datasize := int(unsafe.Sizeof(s))
 	data := make([]byte, datasize)
@@ -227,6 +248,20 @@ func (s StickyBytes) UnmarshalBinaryStick() Sticky {
 	fmt.Printf("msg %v\n", string(s[16:datasize]))
 	copy(sticky.StickyMessage[:], s[16:datasize])
 	return sticky
+}
+
+func NewTopic(id uint32, msg string) (Topic, error) {
+	var bytes [HeaderSize]byte
+	stringThing := []byte(msg)
+	if len(stringThing) <= 255 {
+		copy(bytes[:len(stringThing)], stringThing)
+	} else {
+		// return Topic{}, errors.New("msg too long")
+		log.Printf("too long %v", len(stringThing))
+		copy(bytes[:], stringThing)
+	}
+
+	return Topic{Id: id, Header: bytes}, nil
 }
 
 func (t Topic) MarshalBinary() []byte {

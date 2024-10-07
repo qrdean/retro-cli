@@ -41,10 +41,11 @@ type AddSticky struct {
 func NewAddSticky(posterId, topicId uint32, msg string) (AddSticky, error) {
 	var bytes [255]byte
 	stringThing := []byte(msg)
-	if len(stringThing) < 255 {
+	if len(stringThing) <= 255 {
 		copy(bytes[:len(stringThing)], stringThing)
 	} else {
-		return AddSticky{}, errors.New("msg too long")
+		log.Printf("too long %v", len(stringThing))
+		copy(bytes[:], stringThing)
 	}
 
 	return AddSticky{
@@ -57,11 +58,11 @@ func NewAddSticky(posterId, topicId uint32, msg string) (AddSticky, error) {
 type VoteBytes []byte
 
 type VoteSticky struct {
-	TopicId uint32
+	StickyId uint32
 }
 
-func NewVoteSticky(topicId uint32) VoteSticky {
-	return VoteSticky{TopicId: topicId}
+func NewVoteSticky(stickyId uint32) VoteSticky {
+	return VoteSticky{StickyId: stickyId}
 }
 
 type QuitBytes []byte
@@ -222,13 +223,13 @@ func (m *VoteBytes) ReadFrom(r io.Reader) (int64, error) {
 func (v VoteSticky) MarshalBinary() []byte {
 	datasize := int(unsafe.Sizeof(v))
 	data := make([]byte, datasize)
-	binary.BigEndian.PutUint32(data, v.TopicId)
+	binary.BigEndian.PutUint32(data, v.StickyId)
 	return data
 }
 
 func (b VoteBytes) UnmarshalBinary() VoteSticky {
 	var voteSticky VoteSticky
-	voteSticky.TopicId = uint32(binary.BigEndian.Uint32(b))
+	voteSticky.StickyId = uint32(binary.BigEndian.Uint32(b))
 	return voteSticky
 }
 
