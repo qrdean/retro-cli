@@ -1,9 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
+	"errors"
+	"io"
 	"log"
 	"net"
+	"pkg/shared"
 	"sync"
 )
 
@@ -33,6 +38,7 @@ func NewTcpServer(addr string) TCP {
 		Connections: []Connection{},
 		Listener:    listener,
 		mutex:       sync.RWMutex{},
+		Incoming:    make(chan []byte),
 	}
 }
 
@@ -84,15 +90,64 @@ func (t *TCP) acceptConnection(ctx context.Context) {
 
 func (t *TCP) readConnection(connection Connection) {
 	for {
-		buf := make([]byte, 1024)
+		log.Println("inside read connection")
+		buf := make([]byte, 1024*4)
 		n, err := connection.Conn.Read(buf)
 		if err != nil {
-			log.Println(err)
+			log.Printf("error reading buffer: %v\n", err)
 		}
-		log.Println(buf[:n])
+		// log.Println(buf[:n])
+
+		msg := buf[:n]
+		log.Println(msg)
+		newReader := bytes.NewReader(msg)
+		var version byte
+		err = binary.Read(newReader, binary.BigEndian, &version)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				log.Printf("socket received EOF %v\n", err)
+			} else {
+				log.Printf("error reading binary: %v\n", err)
+			}
+		}
+		log.Printf("got version: %v\n", version)
+		// log.Printf("version is %v\n", version)
+		var typ byte
+		err = binary.Read(newReader, binary.BigEndian, &typ)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				log.Printf("socket received EOF %v\n", err)
+			} else {
+				log.Printf("error reading binary: %v\n", err)
+			}
+		}
+
+		log.Printf("got typ: %v\n", typ)
+		switch typ {
+		case shared.AddStickyType:
+			var stickyBytes shared.AddStickyBytes = msg
+			_, err := stickyBytes.ReadFrom(newReader)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					log.Printf("socket received EOF %v\n", err)
+				} else {
+					log.Printf("error reading bytes: %v\n", err)
+				}
+			}
+
+			addSticky := stickyBytes.UnmarshalBinary()
+			log.Printf("posterid %v\n", addSticky.PosterId)
+			log.Printf("topicId %v\n", addSticky.TopicId)
+			log.Println(string(addSticky.StickyMessage[:]))
+			log.Println("got sticky type")
+			log.Println(msg)
+		}
+		// log.Println(msg)
+
 		// Echo
-		t.Send(buf[:n])
-		t.Incoming <- buf[:n]
+		// t.Send(buf[:n])
+		// t.Incoming <- buf[:n]
+		// log.Println(<-t.Incoming)
 	}
 }
 

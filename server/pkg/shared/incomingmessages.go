@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
+
 	"unsafe"
 )
 
@@ -35,6 +37,22 @@ type AddSticky struct {
 	StickyMessage [StickyMessageSize]byte
 }
 
+func NewAddSticky(posterId, topicId uint32, msg string) (AddSticky, error) {
+	var bytes [255]byte
+	stringThing := []byte(msg)
+	if len(stringThing) < 255 {
+		copy(bytes[:len(stringThing)], stringThing)
+	} else {
+		return AddSticky{}, errors.New("msg too long")
+	}
+
+	return AddSticky{
+		PosterId:      posterId,
+		TopicId:       topicId,
+		StickyMessage: bytes,
+	}, nil
+}
+
 type VoteBytes []byte
 
 type VoteSticky struct {
@@ -51,34 +69,44 @@ func (m AddStickyBytes) Bytes() []byte  { return m }
 func (m AddStickyBytes) String() string { return string(m) }
 
 func (m AddStickyBytes) WriteTo(w io.Writer) (int64, error) {
-	err := binary.Write(w, binary.BigEndian, VERSION)
+	var bytesToWrite []byte
+	bytesToWrite, err := binary.Append(bytesToWrite, binary.BigEndian, VERSION)
+	// err := binary.Write(w, binary.BigEndian, VERSION)
 	if err != nil {
 		return 0, err
 	}
 	var n int64 = 1
 
-	err = binary.Write(w, binary.BigEndian, AddStickyType)
+	// err = binary.Write(w, binary.BigEndian, AddStickyType)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, AddStickyType)
 	if err != nil {
 		return n, err
 	}
 	n += 1
 
-	err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	// err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, uint32(len(m)))
 	if err != nil {
 		return n, err
 	}
 
 	n += 4
 
-	o, err := w.Write(m)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, m)
 
-	return n + int64(o), err
+	o, err := w.Write(bytesToWrite)
+	if err != nil {
+		return n, err
+	}
+
+	return int64(o), err
 }
 
 func (m *AddStickyBytes) ReadFrom(r io.Reader) (int64, error) {
 	var size uint32
 	err := binary.Read(r, binary.BigEndian, &size)
 	if err != nil {
+		log.Printf("error reading size: %v\n", err)
 		return 0, err
 	}
 	var n int64 = 4
@@ -89,6 +117,9 @@ func (m *AddStickyBytes) ReadFrom(r io.Reader) (int64, error) {
 
 	*m = make([]byte, size)
 	o, err := r.Read(*m)
+	if err != nil {
+		return n, err
+	}
 
 	return n + int64(o), err
 }
@@ -116,28 +147,36 @@ func (m VoteBytes) Bytes() []byte  { return m }
 func (m VoteBytes) String() string { return string(m) }
 
 func (m VoteBytes) WriteTo(w io.Writer) (int64, error) {
-	err := binary.Write(w, binary.BigEndian, VERSION)
+	var bytesToWrite []byte
+	// err := binary.Write(w, binary.BigEndian, VERSION)
+	bytesToWrite, err := binary.Append(bytesToWrite, binary.BigEndian, VERSION)
 	if err != nil {
 		return 0, err
 	}
 	var n int64 = 1
 
-	err = binary.Write(w, binary.BigEndian, VoteStickyType)
+	// err = binary.Write(w, binary.BigEndian, VoteStickyType)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, VoteStickyType)
 	if err != nil {
 		return n, err
 	}
 	n += 1
 
-	err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	// err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, uint32(len(m)))
 	if err != nil {
 		return n, err
 	}
 
 	n += 4
 
-	o, err := w.Write(m)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, m)
+	o, err := w.Write(bytesToWrite)
+	if err != nil {
+		return n, err
+	}
 
-	return n + int64(o), err
+	return int64(o), err
 }
 
 func (m *VoteBytes) ReadFrom(r io.Reader) (int64, error) {
@@ -154,6 +193,9 @@ func (m *VoteBytes) ReadFrom(r io.Reader) (int64, error) {
 
 	*m = make([]byte, size)
 	o, err := r.Read(*m)
+	if err != nil {
+		return n, err
+	}
 
 	return n + int64(o), err
 }
@@ -175,28 +217,36 @@ func (m QuitBytes) Bytes() []byte  { return m }
 func (m QuitBytes) String() string { return string(m) }
 
 func (m QuitBytes) WriteTo(w io.Writer) (int64, error) {
-	err := binary.Write(w, binary.BigEndian, VERSION)
+	var bytesToWrite []byte
+	// err := binary.Write(w, binary.BigEndian, VERSION)
+	bytesToWrite, err := binary.Append(bytesToWrite, binary.BigEndian, VERSION)
 	if err != nil {
 		return 0, err
 	}
 	var n int64 = 1
 
-	err = binary.Write(w, binary.BigEndian, QuitType)
+	// err = binary.Write(w, binary.BigEndian, QuitType)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, QuitType)
 	if err != nil {
 		return n, err
 	}
 	n += 1
 
-	err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	// err = binary.Write(w, binary.BigEndian, uint32(len(m)))
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, uint32(len(m)))
 	if err != nil {
 		return n, err
 	}
 
 	n += 4
 
-	o, err := w.Write(m)
+	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, m)
+	o, err := w.Write(bytesToWrite)
+	if err != nil {
+		return n, err
+	}
 
-	return n + int64(o), err
+	return int64(o), err
 }
 
 func (m *QuitBytes) ReadFrom(r io.Reader) (int64, error) {
@@ -213,6 +263,9 @@ func (m *QuitBytes) ReadFrom(r io.Reader) (int64, error) {
 
 	*m = make([]byte, size)
 	o, err := r.Read(*m)
+	if err != nil {
+		return n, err
+	}
 
 	return n + int64(o), err
 }

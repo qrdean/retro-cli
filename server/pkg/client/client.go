@@ -38,6 +38,18 @@ func ConnectAndRead(addr string) {
 				continue
 			case shared.AddStickyType:
 				println(msg)
+				sticky, err := shared.NewAddSticky(1, 1, msg)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+				var stickyBytes shared.AddStickyBytes
+				stickyBytes = sticky.MarshalBinary()
+				n, err := stickyBytes.WriteTo(conn)
+				if err != nil {
+					fmt.Println(err)
+				}
+				fmt.Printf("successfully wrote %v bytes %v\n", n, stickyBytes[:n-8])
 			case shared.VoteStickyType:
 				println(msg)
 			case shared.QuitType:
@@ -62,10 +74,10 @@ func ConnectAndRead(addr string) {
 			break
 		}
 
-		n, err = conn.Write([]byte{1, 5})
-		if err != nil {
-			log.Println(err)
-		}
+		// n, err = conn.Write([]byte{1, 5})
+		// if err != nil {
+		// 	log.Println(err)
+		// }
 		// log.Printf("wrote x numb of bytes %v\n", n)
 	}
 }
