@@ -25,6 +25,7 @@ type Model struct {
 	Topics        []shared.Topic
 	Stickies      []shared.Sticky
 	ViewTopic     map[int]ViewTopic
+	TopicViews    map[uint32]topicView
 	PointToSticky uint32
 	ErrorMsg      string
 }
@@ -35,6 +36,7 @@ func initialModel(conn net.Conn) Model {
 		SomeThing:     "hello",
 		Topics:        []shared.Topic{},
 		Stickies:      []shared.Sticky{},
+		TopicViews:    make(map[uint32]topicView),
 		PointToSticky: 0,
 		ErrorMsg:      "",
 	}
@@ -76,9 +78,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil //refactorHandleMessage(m.Connection)
 			}
 		}
+
+		topic, ok := m.TopicViews[msg.TopicId]
+    var cmd tea.Cmd
+		if ok {
+			cmd = topic.findAndUpdateSticky(stickyItemFrom(msg))
+		} 
 		// log.Println("handling sticky add")
 		m.Stickies = append(m.Stickies, msg)
-		return m, nil //refactorHandleMessage(m.Connection)
+		return m, cmd //refactorHandleMessage(m.Connection)
 
 	case shared.Topic:
 		// fmt.Println("sticky")
@@ -89,6 +97,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil // refactorHandleMessage(m.Connection)
 			}
 		}
+
+		m.TopicViews[msg.Id] = newTopicView(msg)
 		m.Topics = append(m.Topics, msg)
 		return m, nil //refactorHandleMessage(m.Connection)
 
@@ -160,40 +170,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	var s string
-	s += fmt.Sprintf("length of stickies: %v and length of topics %v\n", len(m.Stickies), len(m.Topics))
-	mapstring := make(map[uint32]ViewTopic)
-	s += "\n"
-	if m.ErrorMsg != "" {
-		s += fmt.Sprintf("error msg: %v\n", m.ErrorMsg)
+	// var s string
+	// s += fmt.Sprintf("length of stickies: %v and length of topics %v\n", len(m.Stickies), len(m.Topics))
+	// mapstring := make(map[uint32]ViewTopic)
+	// s += "\n"
+	// if m.ErrorMsg != "" {
+	// 	s += fmt.Sprintf("error msg: %v\n", m.ErrorMsg)
+	// }
+	//
+	// for _, topic := range m.Topics {
+	// 	newTopic := ViewTopic{Topic: topic}
+	// 	// news := ""
+	// 	// news += string(topic.Header[:])
+	// 	// news += "\n"
+	// 	mapstring[topic.Id] = newTopic
+	// }
+	//
+	// for _, sticky := range m.Stickies {
+	// 	viewTopic := mapstring[sticky.TopicId]
+	// 	viewTopic.Stickies = append(viewTopic.Stickies, sticky)
+	// 	mapstring[sticky.TopicId] = viewTopic
+	// }
+	//
+	// for _, viewTopic := range mapstring {
+	// 	s += fmt.Sprintf("Topic Name: %v\n", string(viewTopic.Topic.Header[:]))
+	// 	for _, sticky := range viewTopic.Stickies {
+	// 		s += fmt.Sprintf("%v votes: %v\n", string(sticky.StickyMessage[:]), sticky.Votes)
+	// 	}
+	// 	s += "\n"
+	// }
+
+	var topicViewString string
+	for _, topicView := range m.TopicViews {
+		topicViewString += topicView.View()
 	}
 
-	for _, topic := range m.Topics {
-		newTopic := ViewTopic{Topic: topic}
-		// news := ""
-		// news += string(topic.Header[:])
-		// news += "\n"
-		mapstring[topic.Id] = newTopic
-	}
+	board := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		topicViewString,
+	)
+	// s += "press q to quit"
 
-	for _, sticky := range m.Stickies {
-		viewTopic := mapstring[sticky.TopicId]
-		viewTopic.Stickies = append(viewTopic.Stickies, sticky)
-		mapstring[sticky.TopicId] = viewTopic
-	}
-
-
-	for _, viewTopic := range mapstring {
-		s += fmt.Sprintf("Topic Name: %v\n", string(viewTopic.Topic.Header[:]))
-		for _, sticky := range viewTopic.Stickies {
-			s += fmt.Sprintf("%v votes: %v\n", string(sticky.StickyMessage[:]), sticky.Votes)
-		}
-		s += "\n"
-	}
-
-	s += "press q to quit"
-
-	return appStyle.Render(s)
+	return appStyle.Render(board)
 }
 
 func RunTui() {
