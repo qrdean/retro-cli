@@ -28,13 +28,13 @@ func TestIncomingMessages(t *testing.T) {
 
 	t.Run("marshal and unmarshal Vote Sticky", func(t *testing.T) {
 		voteSticky := VoteSticky{
-			TopicId: 1,
+			StickyId: 1,
 		}
 
 		var voteStickyBytes VoteBytes
 		voteStickyBytes = voteSticky.MarshalBinary()
 		newAddSticky := voteStickyBytes.UnmarshalBinary()
-		assert(t, newAddSticky.TopicId, voteSticky.TopicId)
+		assert(t, newAddSticky.StickyId, voteSticky.StickyId)
 	})
 
 	t.Run("marshal and unmarshal Quit ", func(t *testing.T) {
