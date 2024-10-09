@@ -93,6 +93,7 @@ func (t *TCP) acceptConnection(ctx context.Context) {
 			t.mutex.Unlock()
 
 			go t.readConnection(newConnection)
+			t.SendUpdatedBoard()
 		}(conn)
 	}
 }

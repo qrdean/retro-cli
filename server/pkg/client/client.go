@@ -12,6 +12,9 @@ import (
 	"pkg/shared"
 	"strconv"
 	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+	// tea "github.com/charmbracelet/bubbletea"
 )
 
 func Hey() string {
@@ -24,6 +27,123 @@ func Hey() string {
 
 // type Model struct {
 // }
+
+func RefactorConnectAndRead(addr string) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	reader := bufio.NewReader(conn)
+	for {
+		weBreak, err := handleMessage(reader)
+		if err != nil {
+			log.Printf("error: %v\n", err)
+		}
+
+		if weBreak {
+			break
+		}
+	}
+}
+
+type ErrMsg struct{ err error }
+type Break bool
+type Init bool
+
+func initMessageHandler(conn net.Conn) tea.Cmd {
+	return func() tea.Msg {
+		newReader := bufio.NewReader(conn)
+		return refactorHandleMessage(newReader)
+	}
+}
+
+// func refactorHandleMessage(conn net.Conn) interface{} {
+func refactorHandleMessage(newReader io.Reader) interface{} {
+	// return func() tea.Msg {
+	// newReader := bufio.NewReader(conn)
+	// log.Println("handleing")
+	// msg := buf[:n]
+	// newReader := bytes.NewReader(msg)
+	var version byte
+	err := binary.Read(newReader, binary.BigEndian, &version)
+	if err != nil {
+		// log.Printf("%v\n", err)
+		return ErrMsg{err}
+	}
+	// log.Printf("version is %v\n", version)
+	var typ byte
+	err = binary.Read(newReader, binary.BigEndian, &typ)
+	if err != nil {
+		// log.Printf("%v\n", err)
+		return ErrMsg{err}
+	}
+	// log.Printf("typ is %v\n", typ)
+
+	switch typ {
+	case 0:
+		// log.Println("connection closed")
+		return Break(true)
+	case 6:
+		// log.Println("Received shutdown signal")
+		return Break(true)
+	case shared.PointerType:
+		// var pointerBytes shared.PointerBytes = msg
+		var pointerBytes shared.PointerBytes
+		_, err := pointerBytes.ReadFrom(newReader)
+		if err != nil {
+			// log.Printf("%v\n", err)
+			return ErrMsg{err}
+		}
+
+		// log.Printf("ns len %v\n", ns)
+		// log.Printf("output to pointer bytes %v\n", pointerBytes)
+		pointer := pointerBytes.UnmarshalPointer()
+		// log.Printf("Id: %v\n", pointer.PointerId)
+		return pointer
+	case shared.TopicType:
+		// var topicBytes shared.TopicBytes = msg
+		var topicBytes shared.TopicBytes
+		_, err := topicBytes.ReadFrom(newReader)
+		if err != nil {
+			// log.Printf("%v\n", err)
+			return ErrMsg{err}
+		}
+
+		// log.Printf("ns len %v\n", ns)
+		// log.Printf("output to topic bytes %v\n", topicBytes)
+		topic := topicBytes.UnmarshalTopic()
+		// log.Printf("Id: %v, topic message: %v\n", topic.Id, string(topic.Header[:]))
+		return topic
+	case shared.StickyType:
+		// var stickyBytes shared.StickyBytes = msg
+		var stickyBytes shared.StickyBytes
+		_, err := stickyBytes.ReadFrom(newReader)
+		if err != nil {
+			// log.Printf("%v\n", err)
+			return ErrMsg{err}
+		}
+
+		// log.Printf("ns len %v\n", ns)
+		// log.Printf("output to sticky bytes %v\n", stickyBytes)
+		sticky := stickyBytes.UnmarshalBinaryStick()
+		// log.Printf("Id: %v, topic id: %v, poster id:%v, votes: %v, sticky message: %v\n",
+		// 	sticky.Id,
+		// 	sticky.TopicId,
+		// 	sticky.PosterId,
+		// 	sticky.Votes,
+		// 	string(sticky.StickyMessage[:]),
+		// )
+		return sticky
+	default:
+		log.Printf("not a valid action %v\n", typ)
+	}
+
+	// log.Printf("output from: %v\n", msg)
+	return nil //Init(true)
+	// }
+}
 
 func ConnectAndRead(addr string) {
 	conn, err := net.Dial("tcp", addr)
@@ -96,13 +216,6 @@ func ConnectAndRead(addr string) {
 	// buf := make([]byte, 1024*4)
 	reader := bufio.NewReader(conn)
 	for {
-		// log.Println("reading")
-		// n, err := conn.Read(buf)
-		// if err != nil {
-		// 	log.Println(err)
-		// }
-
-		// weBreak, err := handleMessage(buf, n)
 		weBreak, err := handleMessage(reader)
 		if err != nil {
 			log.Printf("error: %v\n", err)
@@ -111,12 +224,6 @@ func ConnectAndRead(addr string) {
 		if weBreak {
 			break
 		}
-
-		// n, err = conn.Write([]byte{1, 5})
-		// if err != nil {
-		// 	log.Println(err)
-		// }
-		// log.Printf("wrote x numb of bytes %v\n", n)
 	}
 }
 
