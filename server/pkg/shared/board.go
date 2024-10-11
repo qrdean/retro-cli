@@ -2,7 +2,6 @@ package shared
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"log"
 	"unsafe"
@@ -245,7 +244,7 @@ func (s StickyBytes) UnmarshalBinaryStick() Sticky {
 	sticky.PosterId = uint32(binary.BigEndian.Uint32(s[4:]))
 	sticky.TopicId = uint32(binary.BigEndian.Uint32(s[8:]))
 	sticky.Votes = uint32(binary.BigEndian.Uint32(s[12:]))
-	fmt.Printf("msg %v\n", string(s[16:datasize]))
+	// fmt.Printf("msg %v\n", string(s[16:datasize]))
 	copy(sticky.StickyMessage[:], s[16:datasize])
 	return sticky
 }

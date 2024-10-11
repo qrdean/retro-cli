@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"log"
 	"pkg/shared"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -11,10 +10,11 @@ import (
 )
 
 type topicView struct {
-	focus    bool
-	id       uint32
-	header   string
-	stickies list.Model
+	focus         bool
+	id            uint32
+	header        string
+	currentItemId uint32
+	stickies      list.Model
 }
 
 func (t *topicView) Focus() {
@@ -27,6 +27,13 @@ func (t *topicView) Blur() {
 
 func (t *topicView) Focused() bool {
 	return t.focus
+}
+
+func newTestTopicViewWithList(id uint32, header [255]byte, stickyItem StickyItem) topicView {
+	focus := false
+	defaultList := list.New([]list.Item{stickyItem}, list.NewDefaultDelegate(), 0, 0)
+	defaultList.SetShowHelp(false)
+	return topicView{focus: focus, id: id, header: string(header[:]), stickies: defaultList}
 }
 
 func newTopicView(rawTopic shared.Topic) topicView {
@@ -43,23 +50,19 @@ func (t topicView) Init() tea.Cmd {
 func (t topicView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "v":
-			i, ok := t.stickies.SelectedItem().(StickyItem)
-			if ok {
-				log.Printf("vote for %v\n", i.id)
-			}
-		}
-
-		return t, cmd
+	case tea.WindowSizeMsg:
+		h, v := t.getStyle().GetFrameSize()
+		t.stickies.SetSize(msg.Width-h, msg.Height-v)
 	}
 
 	t.stickies, cmd = t.stickies.Update(msg)
+	item := t.stickies.SelectedItem().(StickyItem)
+	t.currentItemId = item.id
 	return t, cmd
 }
 
 func (t topicView) View() string {
+	// return t.getStyle().Render(t.header + "\n" + t.stickies.View())
 	return t.getStyle().Render(t.stickies.View())
 }
 
@@ -70,13 +73,13 @@ func (t topicView) getStyle() lipgloss.Style {
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("62")).
 			Height(1).
-			Width(1)
+			Width(0)
 	}
 	return lipgloss.NewStyle().
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
 		Height(1).
-		Width(1)
+		Width(0)
 }
 
 func (t *topicView) updateAllSticky(sticky []StickyItem) {
@@ -98,12 +101,10 @@ func (t *topicView) findAndUpdateSticky(sticky StickyItem) tea.Cmd {
 		i, ok := item.(StickyItem)
 		if ok {
 			if i.id == sticky.id {
-				log.Println("here")
 				return t.stickies.SetItem(idx, sticky)
 			}
 		}
 	}
-	log.Println("there")
 	return t.appendSticky(sticky)
 }
 
@@ -121,25 +122,37 @@ type StickyItem struct {
 	topicId       uint32
 	votes         uint32
 	stickyMessage string
-	title					string
-	description		string
+	title         string
+	description   string
 }
 
 func (s StickyItem) FilterValue() string {
-	return s.stickyMessage
+	return s.title
 }
 
 func (s StickyItem) Title() string {
-	return s.stickyMessage
+	return s.title
 }
 
 func (s StickyItem) Description() string {
-	return fmt.Sprintf("Votes: %v", s.votes)
+	return s.description
 }
 
 // func (s StickyItem) View() string {
 // 	return fmt.Sprintf("something %v", s.id)
 // }
+
+func testStickyItem(id, posterId, topicId, votes uint32, stickyMessage [255]byte) StickyItem {
+	return StickyItem{
+		id:            id,
+		posterId:      posterId,
+		topicId:       topicId,
+		votes:         votes,
+		stickyMessage: string(stickyMessage[:]),
+		title:         string(stickyMessage[:]),
+		description:   fmt.Sprintf("Votes: %v", votes),
+	}
+}
 
 func stickyItemFrom(stickyMsg shared.Sticky) StickyItem {
 	return StickyItem{
@@ -148,7 +161,7 @@ func stickyItemFrom(stickyMsg shared.Sticky) StickyItem {
 		topicId:       stickyMsg.TopicId,
 		votes:         stickyMsg.Votes,
 		stickyMessage: string(stickyMsg.StickyMessage[:]),
-		title: 				 string(stickyMsg.StickyMessage[:]),
-		description: 	 fmt.Sprintf("Votes: %v", stickyMsg.Votes),
+		title:         string(stickyMsg.StickyMessage[:]),
+		description:   fmt.Sprintf("Votes: %v", stickyMsg.Votes),
 	}
 }
