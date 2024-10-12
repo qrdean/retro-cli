@@ -137,7 +137,6 @@ func (s StickyItem) FilterValue() string {
 
 func (s StickyItem) Title() string {
 	display := strings.TrimSpace(s.title)
-	fmt.Println(len(display))
 	if len(display) > 130 {
 		display = fmt.Sprintf("%s ...", s.title[:120])
 	}

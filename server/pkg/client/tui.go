@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"os"
 	"pkg/shared"
@@ -20,18 +21,32 @@ type ViewTopic struct {
 	Stickies []shared.Sticky
 }
 
+type size int
+
+const (
+	undersized size = iota
+	small
+	medium
+	large
+)
+
 type Model struct {
-	Connection    net.Conn
-	SomeThing     string
-	Topics        []shared.Topic
-	Stickies      []shared.Sticky
-	ViewTopic     map[int]ViewTopic
-	TopicViews    map[uint32]topicView
-	PointToSticky uint32
-	ErrorMsg      string
-	CurrentTopic  uint32
-	textinput     textinput.Model
-	textMode      bool
+	Connection      net.Conn
+	SomeThing       string
+	Topics          []shared.Topic
+	Stickies        []shared.Sticky
+	ViewTopic       map[int]ViewTopic
+	TopicViews      map[uint32]topicView
+	PointToSticky   uint32
+	ErrorMsg        string
+	CurrentTopic    uint32
+	textinput       textinput.Model
+	textMode        bool
+	widthContainer  int
+	heightContainer int
+	viewportHeight  int
+	viewportWidth   int
+	size            size
 }
 
 func initialModel(conn net.Conn) Model {
@@ -136,6 +151,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.viewportHeight = msg.Height
+		m.viewportWidth = msg.Width
+		switch {
+		case m.viewportHeight < 10 || m.viewportWidth < 20:
+			m.size = undersized
+			m.widthContainer = m.viewportWidth
+			m.heightContainer = m.viewportHeight
+
+		case m.viewportWidth < 40:
+			m.size = small
+			m.widthContainer = m.viewportWidth
+			m.heightContainer = m.viewportHeight
+
+		case m.viewportWidth < 60:
+			m.size = medium
+			m.widthContainer = 40
+			m.heightContainer = int(math.Min(float64(msg.Height), 30))
+
+		default:
+			m.size = large
+			m.widthContainer = 60
+			m.heightContainer = int(math.Min(float64(msg.Height), 30))
+		}
+
 	case ErrMsg:
 		m.ErrorMsg = string(msg.err.Error())
 
@@ -406,7 +446,7 @@ func (m Model) View() string {
 
 	var boardState string
 	for _, viewTopic := range m.TopicViews {
-  	boardState += viewTopic.View()
+		boardState += viewTopic.View()
 		boardState += "\n"
 	}
 
