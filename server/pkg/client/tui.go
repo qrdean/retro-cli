@@ -8,6 +8,7 @@ import (
 	"os"
 	"pkg/shared"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -29,9 +30,17 @@ type Model struct {
 	PointToSticky uint32
 	ErrorMsg      string
 	CurrentTopic  uint32
+	textinput     textinput.Model
+	textMode      bool
 }
 
 func initialModel(conn net.Conn) Model {
+	ti := textinput.New()
+	ti.Placeholder = "New Sticky"
+	ti.Focus()
+	ti.CharLimit = 250
+	ti.Width = 60
+
 	return Model{
 		Connection:    conn,
 		SomeThing:     "hello",
@@ -41,6 +50,7 @@ func initialModel(conn net.Conn) Model {
 		PointToSticky: 0,
 		ErrorMsg:      "",
 		CurrentTopic:  0,
+		textinput:     ti,
 	}
 }
 
@@ -95,11 +105,43 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var stickies []StickyItem
 	dontupdate := false
+
+	if m.textMode {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "enter":
+				somevalue := m.textinput.Value()
+
+				msg := somevalue
+				sticky, err := shared.NewAddSticky(1, m.CurrentTopic, msg)
+				if err != nil {
+					// log.Println(err)
+					// continue
+				}
+				var stickyBytes shared.AddStickyBytes
+				stickyBytes = sticky.MarshalBinary()
+				_, err = stickyBytes.WriteTo(m.Connection)
+				if err != nil {
+					m.ErrorMsg = string(err.Error())
+				}
+
+				m.textMode = false
+				m.textinput.Reset()
+			}
+		}
+
+		m.textinput, cmd = m.textinput.Update(msg)
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case ErrMsg:
 		m.ErrorMsg = string(msg.err.Error())
 
 	case Break:
+		fmt.Println("breaking")
+		fmt.Println(m.ErrorMsg)
 		quit := shared.NewQuit(1)
 		var quitBytes shared.QuitBytes = quit.MarshalBinary()
 		_, err := quitBytes.WriteTo(m.Connection)
@@ -124,21 +166,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// fmt.Println("wrote %v bytes %v\n", n, quitBytes[:])
 			return m, tea.Quit
 
-		case "a":
-			msg := "Hello Msg"
-			sticky, err := shared.NewAddSticky(1, 1, msg)
-			if err != nil {
-				// log.Println(err)
-				// continue
-			}
-			var stickyBytes shared.AddStickyBytes
-			stickyBytes = sticky.MarshalBinary()
-			_, err = stickyBytes.WriteTo(m.Connection)
-			if err != nil {
-				// fmt.Println(err)
-				m.ErrorMsg = string(err.Error())
-			}
-			// fmt.Printf("successfully wrote %v bytes %v\n", n, stickyBytes[:n-8])
+		case "n":
+			m.textinput, cmd = m.textinput.Update(nil)
+			m.textMode = true
+			return m, cmd
+
 		case "v":
 			tp := m.TopicViews[m.CurrentTopic]
 			voteSticky := shared.NewVoteSticky(tp.currentItemId)
@@ -372,16 +404,26 @@ func (m Model) View() string {
 	// 	s += "\n"
 	// }
 
-	board := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		// topicViewString,
-		m.TopicViews[0].View(),
-		m.TopicViews[1].View(),
-		m.TopicViews[2].View(),
-	)
-	// s += "press q to quit"
+	var boardState string
+	for _, viewTopic := range m.TopicViews {
+  	boardState += viewTopic.View()
+		boardState += "\n"
+	}
 
-	return appStyle.Render(board)
+	// board := lipgloss.JoinHorizontal(
+	// 	lipgloss.Left,
+	// 	// topicViewString,
+	// 	// m.TopicViews[0].View(),
+	// 	// m.TopicViews[1].View(),
+	// 	// m.TopicViews[2].View(),
+	// )
+
+	if m.textMode {
+		return appStyle.Render(m.textinput.View())
+	}
+
+	// return appStyle.Render(board)
+	return appStyle.Render(m.TopicViews[m.CurrentTopic].View())
 }
 
 func RunTui() {

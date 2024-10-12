@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"pkg/shared"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,6 +16,8 @@ type topicView struct {
 	header        string
 	currentItemId uint32
 	stickies      list.Model
+	height        int
+	width         int
 }
 
 func (t *topicView) Focus() {
@@ -31,7 +34,8 @@ func (t *topicView) Focused() bool {
 
 func newTestTopicViewWithList(id uint32, header [255]byte, stickyItem StickyItem) topicView {
 	focus := false
-	defaultList := list.New([]list.Item{stickyItem}, list.NewDefaultDelegate(), 0, 0)
+	delegate := list.NewDefaultDelegate()
+	defaultList := list.New([]list.Item{stickyItem}, delegate, 0, 0)
 	defaultList.SetShowHelp(false)
 	return topicView{focus: focus, id: id, header: string(header[:]), stickies: defaultList}
 }
@@ -62,8 +66,8 @@ func (t topicView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (t topicView) View() string {
-	// return t.getStyle().Render(t.header + "\n" + t.stickies.View())
-	return t.getStyle().Render(t.stickies.View())
+	return t.getStyle().
+		Render(t.stickies.View())
 }
 
 func (t topicView) getStyle() lipgloss.Style {
@@ -72,14 +76,15 @@ func (t topicView) getStyle() lipgloss.Style {
 			Padding(1, 2).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("62")).
-			Height(1).
-			Width(0)
+			Height(t.height).
+			Width(t.width)
+
 	}
 	return lipgloss.NewStyle().
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
-		Height(1).
-		Width(0)
+		Height(t.height).
+		Width(t.width)
 }
 
 func (t *topicView) updateAllSticky(sticky []StickyItem) {
@@ -131,7 +136,13 @@ func (s StickyItem) FilterValue() string {
 }
 
 func (s StickyItem) Title() string {
-	return s.title
+	display := strings.TrimSpace(s.title)
+	fmt.Println(len(display))
+	if len(display) > 130 {
+		display = fmt.Sprintf("%s ...", s.title[:120])
+	}
+	return lipgloss.NewStyle().Render(display)
+	// return s.title
 }
 
 func (s StickyItem) Description() string {

@@ -257,25 +257,25 @@ func (t *TCP) readConnection(connection Connection) {
 func (t *TCP) SendUpdatedBoard() {
 	t.mutex.RLock()
 
-	topicMsgs, stickyMsgs, err := t.Board.ToBoardMessages()
+	_, stickyMsgs, err := t.Board.ToBoardMessages()
 	if err != nil {
 		log.Println("error compiling board messages", err)
 		return
 	}
 
 	for _, connection := range t.Connections {
-		for _, topic := range topicMsgs {
-			msg := topic.MarshalBinary()
-			log.Println(msg)
-			var topicBytes shared.TopicBytes = msg
-			n, err := topicBytes.WriteTo(connection.Conn)
-			if err != nil {
-				log.Println(err)
-			}
-			log.Println(n)
-			log.Println(topicBytes[:n-6])
-			log.Printf("sent id %v\n", topic.Id)
-		}
+		// for _, topic := range topicMsgs {
+		// 	msg := topic.MarshalBinary()
+		// 	log.Println(msg)
+		// 	var topicBytes shared.TopicBytes = msg
+		// 	n, err := topicBytes.WriteTo(connection.Conn)
+		// 	if err != nil {
+		// 		log.Println(err)
+		// 	}
+		// 	log.Println(n)
+		// 	log.Println(topicBytes[:n-6])
+		// 	log.Printf("sent id %v\n", topic.Id)
+		// }
 
 		for _, sticky := range stickyMsgs {
 			var stickyBytes shared.StickyBytes = sticky.MarshalBinary()
