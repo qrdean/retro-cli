@@ -42,10 +42,12 @@ type Model struct {
 	CurrentTopic    uint32
 	textinput       textinput.Model
 	textMode        bool
+	selectedMode    bool
 	widthContainer  int
 	heightContainer int
 	viewportHeight  int
 	viewportWidth   int
+	widthContent    int
 	size            size
 }
 
@@ -54,7 +56,7 @@ func initialModel(conn net.Conn) Model {
 	ti.Placeholder = "New Sticky"
 	ti.Focus()
 	ti.CharLimit = 250
-	ti.Width = 60
+	ti.Width = 128
 
 	return Model{
 		Connection:    conn,
@@ -115,6 +117,10 @@ func (m Model) Init() tea.Cmd {
 	return initMessageHandler(m.Connection)
 }
 
+type ParentWidthChange struct {
+	width int
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -172,15 +178,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		default:
 			m.size = large
-			m.widthContainer = 60
+			m.widthContainer = 100
 			m.heightContainer = int(math.Min(float64(msg.Height), 30))
 		}
+
+		m.widthContent = m.widthContainer - 4
 
 	case ErrMsg:
 		m.ErrorMsg = string(msg.err.Error())
 
 	case Break:
-		fmt.Println("breaking")
+		fmt.Println("fuck")
+		fmt.Println(msg)
 		fmt.Println(m.ErrorMsg)
 		quit := shared.NewQuit(1)
 		var quitBytes shared.QuitBytes = quit.MarshalBinary()
@@ -210,6 +219,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textinput, cmd = m.textinput.Update(nil)
 			m.textMode = true
 			return m, cmd
+
+		case "s":
+			m.selectedMode = true
+
+		case "b":
+			m.selectedMode = false
 
 		case "v":
 			tp := m.TopicViews[m.CurrentTopic]
@@ -247,6 +262,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if !dontupdate {
 		for i, tv := range m.TopicViews {
+			if m.selectedMode {
+				tv.parentWidthContext = m.widthContent
+			} else {
+				tv.parentWidthContext = m.widthContent / len(m.TopicViews)
+			}
 			z, c := tv.Update(msg)
 			x, ok := z.(topicView)
 			if ok {
@@ -444,26 +464,35 @@ func (m Model) View() string {
 	// 	s += "\n"
 	// }
 
-	var boardState string
-	for _, viewTopic := range m.TopicViews {
-		boardState += viewTopic.View()
-		boardState += "\n"
+	// var boardState string
+	// for _, viewTopic := range m.TopicViews {
+	// 	boardState += viewTopic.View()
+	// 	boardState += "\n"
+	// }
+
+	var board string
+	if m.selectedMode {
+		board = m.TopicViews[m.CurrentTopic].View()
+	} else {
+		board = lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			// topicViewString,
+			m.TopicViews[0].View(),
+			m.TopicViews[1].View(),
+			m.TopicViews[2].View(),
+		)
+
 	}
-
-	// board := lipgloss.JoinHorizontal(
-	// 	lipgloss.Left,
-	// 	// topicViewString,
-	// 	// m.TopicViews[0].View(),
-	// 	// m.TopicViews[1].View(),
-	// 	// m.TopicViews[2].View(),
-	// )
-
 	if m.textMode {
-		return appStyle.Render(m.textinput.View())
+		textView := "Adding to: "
+		textView += m.TopicViews[m.CurrentTopic].header
+		textView += "\n"
+		textView += m.textinput.View()
+		return appStyle.Render(textView)
 	}
 
 	// return appStyle.Render(board)
-	return appStyle.Render(m.TopicViews[m.CurrentTopic].View())
+	return appStyle.Render(board)
 }
 
 func RunTui() {
@@ -480,7 +509,6 @@ func RunTui() {
 		newReader := bufio.NewReader(conn)
 		for {
 			data := refactorHandleMessage(newReader)
-			// log.Println(data)
 			p.Send(data)
 			// p.Send(refactorHandleMessage(conn))
 		}

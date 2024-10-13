@@ -170,11 +170,13 @@ func createStickyTopicBoardStateState() Board {
 	}
 	stickyIds := 1
 	for idx, topic := range topics {
-		stickyMsg := fmt.Sprintf("Sticky %v", idx)
-		sticky := NewSticky(uint32(stickyIds), 1, 0, stickyMsg)
-		topic = topic.AddNewSticky(sticky)
-		topics[idx] = topic
-		stickyIds++
+		for numb := 0; numb < 3; numb++ {
+			stickyMsg := fmt.Sprintf("Sticky %v", numb)
+			sticky := NewSticky(uint32(stickyIds), 1, 0, stickyMsg)
+			topic = topic.AddNewSticky(sticky)
+			topics[idx] = topic
+			stickyIds++
+		}
 	}
 	board := NewBoard(topics)
 	board.StickyIdCounter = uint32(stickyIds)

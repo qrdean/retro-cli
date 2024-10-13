@@ -93,7 +93,7 @@ func (t *TCP) acceptConnection(ctx context.Context) {
 			t.mutex.Unlock()
 
 			go t.readConnection(newConnection)
-			t.SendUpdatedBoard()
+			go t.SendUpdatedBoard()
 		}(conn)
 	}
 }
@@ -281,7 +281,7 @@ func (t *TCP) SendUpdatedBoard() {
 			var stickyBytes shared.StickyBytes = sticky.MarshalBinary()
 			n, err := stickyBytes.WriteTo(connection.Conn)
 			if err != nil {
-				log.Println(err)
+				log.Printf("error: %v\n", err)
 			}
 			log.Println(n)
 			log.Println(stickyBytes[:n-6])

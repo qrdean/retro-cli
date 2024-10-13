@@ -11,13 +11,14 @@ import (
 )
 
 type topicView struct {
-	focus         bool
-	id            uint32
-	header        string
-	currentItemId uint32
-	stickies      list.Model
-	height        int
-	width         int
+	focus              bool
+	id                 uint32
+	header             string
+	currentItemId      uint32
+	stickies           list.Model
+	height             int
+	width              int
+	parentWidthContext int
 }
 
 func (t *topicView) Focus() {
@@ -37,6 +38,8 @@ func newTestTopicViewWithList(id uint32, header [255]byte, stickyItem StickyItem
 	delegate := list.NewDefaultDelegate()
 	defaultList := list.New([]list.Item{stickyItem}, delegate, 0, 0)
 	defaultList.SetShowHelp(false)
+	defaultList.SetWidth(25)
+	defaultList.SetHeight(35)
 	return topicView{focus: focus, id: id, header: string(header[:]), stickies: defaultList}
 }
 
@@ -55,10 +58,12 @@ func (t topicView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		h, v := t.getStyle().GetFrameSize()
-		t.stickies.SetSize(msg.Width-h, msg.Height-v)
+		_, v := t.getStyle().GetFrameSize()
+		t.stickies.SetWidth(t.parentWidthContext + 5)
+		t.stickies.SetHeight(msg.Height - v - 2)
 	}
 
+	t.stickies.SetWidth(t.parentWidthContext + 5)
 	t.stickies, cmd = t.stickies.Update(msg)
 	item := t.stickies.SelectedItem().(StickyItem)
 	t.currentItemId = item.id
@@ -67,7 +72,7 @@ func (t topicView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (t topicView) View() string {
 	return t.getStyle().
-		Render(t.stickies.View())
+		Render(t.header + "\n\n" + t.stickies.View())
 }
 
 func (t topicView) getStyle() lipgloss.Style {
@@ -76,15 +81,19 @@ func (t topicView) getStyle() lipgloss.Style {
 			Padding(1, 2).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("62")).
-			Height(t.height).
-			Width(t.width)
+			// Height(t.height)
+			Height(1)
+		// Width(t.parentWidthContext - 2)
+		// Width(0)
 
 	}
 	return lipgloss.NewStyle().
 		Padding(1, 2).
 		Border(lipgloss.RoundedBorder()).
-		Height(t.height).
-		Width(t.width)
+		// Height(t.height)
+		Height(1)
+	// Width(t.parentWidthContext - 2)
+	// Width(0)
 }
 
 func (t *topicView) updateAllSticky(sticky []StickyItem) {
@@ -129,6 +138,7 @@ type StickyItem struct {
 	stickyMessage string
 	title         string
 	description   string
+	width         int
 }
 
 func (s StickyItem) FilterValue() string {
@@ -137,9 +147,9 @@ func (s StickyItem) FilterValue() string {
 
 func (s StickyItem) Title() string {
 	display := strings.TrimSpace(s.title)
-	if len(display) > 130 {
-		display = fmt.Sprintf("%s ...", s.title[:120])
-	}
+	// if len(display) > 130 {
+	// 	display = fmt.Sprintf("%s ...", s.title[:120])
+	// }
 	return lipgloss.NewStyle().Render(display)
 	// return s.title
 }
@@ -160,7 +170,7 @@ func testStickyItem(id, posterId, topicId, votes uint32, stickyMessage [255]byte
 		votes:         votes,
 		stickyMessage: string(stickyMessage[:]),
 		title:         string(stickyMessage[:]),
-		description:   fmt.Sprintf("Votes: %v", votes),
+		description:   fmt.Sprintf("QD - Votes: %v", votes),
 	}
 }
 
@@ -172,6 +182,6 @@ func stickyItemFrom(stickyMsg shared.Sticky) StickyItem {
 		votes:         stickyMsg.Votes,
 		stickyMessage: string(stickyMsg.StickyMessage[:]),
 		title:         string(stickyMsg.StickyMessage[:]),
-		description:   fmt.Sprintf("Votes: %v", stickyMsg.Votes),
+		description:   fmt.Sprintf("QD - Votes: %v", stickyMsg.Votes),
 	}
 }

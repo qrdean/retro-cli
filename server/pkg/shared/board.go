@@ -158,6 +158,7 @@ func (m StickyBytes) WriteTo(w io.Writer) (int64, error) {
 	n += 4
 
 	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, m)
+	log.Printf("%v", bytesToWrite)
 	o, err := w.Write(bytesToWrite)
 	if err != nil {
 		return n, err
