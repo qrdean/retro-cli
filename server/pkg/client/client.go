@@ -72,14 +72,14 @@ func refactorHandleMessage(newReader io.Reader) interface{} {
 		// log.Printf("%v\n", err)
 		return ErrMsg{err}
 	}
-	log.Printf("version is %v\n", version)
+	// log.Printf("version is %v\n", version)
 	var typ byte
 	err = binary.Read(newReader, binary.BigEndian, &typ)
 	if err != nil {
 		// log.Printf("%v\n", err)
 		return ErrMsg{err}
 	}
-	log.Printf("typ is %v\n", typ)
+	// log.Printf("typ is %v\n", typ)
 
 	switch typ {
 	case 0:

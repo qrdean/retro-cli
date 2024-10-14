@@ -506,13 +506,19 @@ func RunTui() {
 	p := tea.NewProgram(initialModel(conn))
 
 	go func() {
-		newReader := bufio.NewReader(conn)
+		// newReader := bufio.NewReader(conn)
+		newReader := bufio.NewReaderSize(conn, 4096*15)
 		for {
 			data := refactorHandleMessage(newReader)
 			p.Send(data)
 			// p.Send(refactorHandleMessage(conn))
 		}
 	}()
+	// TODO: Add new protocol for acknowledgement
+	_, err = conn.Write([]byte{1, 42})
+	if err != nil {
+		fmt.Println(err)
+	}
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, theres been an error: %v", err)
 		os.Exit(1)
