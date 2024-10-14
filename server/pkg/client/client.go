@@ -51,6 +51,8 @@ func RefactorConnectAndRead(addr string) {
 type ErrMsg struct{ err error }
 type Break bool
 type Init bool
+type TopicsDone bool
+type TopicLength uint32
 
 func initMessageHandler(conn net.Conn) tea.Cmd {
 	return func() tea.Msg {
@@ -88,6 +90,23 @@ func refactorHandleMessage(newReader io.Reader) interface{} {
 	case 6:
 		// log.Println("Received shutdown signal")
 		return Break(true)
+
+	case 43:
+		return TopicsDone(true)
+
+	case 49:
+		var packet shared.Packet
+		_, err := packet.Byte.ReadFrom(newReader)
+		if err != nil {
+			log.Println(err)
+			return ErrMsg{err}
+		}
+		length := shared.UnmarshalPointerTopicLength(packet.Byte)
+
+		log.Printf("topic length: %v", length)
+
+		return TopicLength(length)
+
 	case shared.PointerType:
 		// var pointerBytes shared.PointerBytes = msg
 		var pointerBytes shared.PointerBytes

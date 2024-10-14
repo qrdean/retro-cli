@@ -244,6 +244,9 @@ func (t *TCP) readConnection(connection Connection) {
 				t.Board.PointToStickyId = pointTo.StickyId
 			}
 
+		case 40:
+			t.SendTopicLength(connection)
+
 		case 42:
 			// Sends initial Topics to setup the board with
 			t.SendTopics(connection)
@@ -277,7 +280,7 @@ func (t *TCP) readConnection(connection Connection) {
 	}
 }
 
-func (t *TCP) SendTopics(conn Connection) {
+func (t *TCP) SendTopicLength(conn Connection) {
 	t.mutex.RLock()
 	topicMsgs, _, err := t.Board.ToBoardMessages()
 	if err != nil {
@@ -286,6 +289,31 @@ func (t *TCP) SendTopics(conn Connection) {
 		return
 	}
 
+	topicLength := uint32(len(topicMsgs))
+
+	data := shared.MarshalBinaryTopicLength(topicLength)
+
+	packetMsg := shared.Packet{
+		Type: 49,
+		Byte: data,
+	}
+
+	n, err := packetMsg.WriteTo(conn.Conn)
+	if err != nil {
+		log.Printf("some error %v", err)
+	}
+	log.Printf("sent bytes %v", n)
+	t.mutex.RUnlock()
+}
+
+func (t *TCP) SendTopics(conn Connection) {
+	t.mutex.RLock()
+	topicMsgs, _, err := t.Board.ToBoardMessages()
+	if err != nil {
+		log.Println("error compiling board messages", err)
+		t.mutex.RUnlock()
+		return
+	}
 	for _, topic := range topicMsgs {
 		msg := topic.MarshalBinary()
 		var topicBytes shared.TopicBytes = msg
@@ -297,6 +325,8 @@ func (t *TCP) SendTopics(conn Connection) {
 		log.Println(topicBytes[:n-6])
 		log.Printf("sent topic id %v\n", topic.Id)
 	}
+
+	conn.Conn.Write([]byte{1, 43})
 	t.mutex.RUnlock()
 }
 

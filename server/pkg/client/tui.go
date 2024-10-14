@@ -49,6 +49,7 @@ type Model struct {
 	viewportWidth   int
 	widthContent    int
 	TopicAck        bool
+	TopicNumber     uint32
 	size            size
 }
 
@@ -202,18 +203,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 
+	case TopicLength:
+		m.TopicNumber = uint32(msg)
+		_, err := m.Connection.Write([]byte{1, 42})
+		if err != nil {
+			fmt.Println(err)
+		}
+
 	case shared.Sticky:
 		stickies = append(stickies, stickyItemFrom(msg))
 
 	case shared.Topic:
 		m.TopicViews[msg.Id] = newTopicView(msg)
 		if !m.TopicAck {
-			_, err := m.Connection.Write([]byte{1, 41})
-			if err != nil {
-				fmt.Println(err)
-				m.ErrorMsg = string(err.Error())
-			}
 			m.TopicAck = true
+			tp := m.TopicViews[msg.Id]
+			tp.Focus()
+			m.TopicViews[msg.Id] = tp
+		}
+
+	case TopicsDone:
+		_, err := m.Connection.Write([]byte{1, 41})
+		if err != nil {
+			fmt.Println(err)
+			m.ErrorMsg = string(err.Error())
 		}
 
 	case tea.KeyMsg:
@@ -488,14 +501,15 @@ func (m Model) View() string {
 	if m.selectedMode {
 		board = m.TopicViews[m.CurrentTopic].View()
 	} else {
-		board = lipgloss.JoinHorizontal(
-			lipgloss.Left,
-			// topicViewString,
-			m.TopicViews[0].View(),
-			m.TopicViews[1].View(),
-			m.TopicViews[2].View(),
-		)
-
+		// board = lipgloss.JoinHorizontal(
+		// 	lipgloss.Left,
+		// 	m.TopicViews[0].View(),
+		// 	m.TopicViews[1].View(),
+		// 	m.TopicViews[2].View(),
+		// 	m.TopicViews[3].View(),
+		// 	m.TopicViews[4].View(),
+		// )
+		board = getBoardUpdated(m)
 	}
 	if m.textMode {
 		textView := "Adding to: "
@@ -507,6 +521,63 @@ func (m Model) View() string {
 
 	// return appStyle.Render(board)
 	return appStyle.Render(board)
+}
+
+func getBoardUpdated(m Model) string {
+	var view string
+	var topicNumbers []string
+	for i := range m.TopicNumber {
+		topicNumbers = append(topicNumbers, m.TopicViews[i].View())
+	}
+	view = lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		topicNumbers...
+	)
+	return view
+}
+
+func getBoard(m Model) string {
+	var view string
+	switch m.TopicNumber {
+	case 1:
+		view = lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			m.TopicViews[0].View(),
+		)
+	case 2:
+		view = lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			m.TopicViews[0].View(),
+			m.TopicViews[1].View(),
+		)
+	case 3:
+		view = lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			m.TopicViews[0].View(),
+			m.TopicViews[1].View(),
+			m.TopicViews[2].View(),
+		)
+	case 4:
+		view = lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			m.TopicViews[0].View(),
+			m.TopicViews[1].View(),
+			m.TopicViews[2].View(),
+			m.TopicViews[3].View(),
+		)
+	case 5:
+		view = lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			m.TopicViews[0].View(),
+			m.TopicViews[1].View(),
+			m.TopicViews[2].View(),
+			m.TopicViews[3].View(),
+			m.TopicViews[4].View(),
+		)
+	}
+
+	return view
+
 }
 
 func RunTui() {
@@ -529,7 +600,7 @@ func RunTui() {
 		}
 	}()
 
-	_, err = conn.Write([]byte{1, 42})
+	_, err = conn.Write([]byte{1, 40})
 	if err != nil {
 		fmt.Println(err)
 	}
