@@ -18,8 +18,9 @@ func Hey() string {
 }
 
 type Connection struct {
-	Id   int
-	Conn net.Conn
+	Id    int
+	Conn  net.Conn
+	Ready bool
 }
 
 type TCP struct {
@@ -152,6 +153,12 @@ func (t *TCP) readConnection(connection Connection) {
 			newSticky := NewSticky(t.Board.StickyIdCounter, addSticky.PosterId, 0, string(addSticky.StickyMessage[:]))
 			t.Board.StickyIdCounter++
 			t.Board.Topics[topicIdx] = topic.AddNewSticky(newSticky)
+			msg, err := newSticky.toStickyMessage(uint32(topicIdx))
+			if err != nil {
+				log.Println(err)
+				break
+			}
+			t.SendSpecificMsg(msg, shared.AddStickyType)
 
 		case shared.VoteStickyType:
 			var voteBytes shared.VoteBytes //= msg
@@ -178,6 +185,12 @@ func (t *TCP) readConnection(connection Connection) {
 			sticky = sticky.VoteForSticky()
 			t.Board.Topics[topicIdx].Stickies[stickyIdx] = sticky
 			log.Println(sticky.Votes)
+			msg, err := sticky.toStickyMessage(uint32(topicIdx))
+			if err != nil {
+				log.Println(err)
+				break
+			}
+			t.SendSpecificMsg(msg, shared.VoteStickyType)
 
 		case shared.QuitType:
 			var quitBytes shared.QuitBytes //= msg
@@ -231,6 +244,14 @@ func (t *TCP) readConnection(connection Connection) {
 				t.Board.PointToStickyId = pointTo.StickyId
 			}
 
+		case 42:
+			// Sends initial Topics to setup the board with
+			t.SendTopics(connection)
+
+		case 41:
+			connection.Ready = true
+			t.SendInitialBoardState(connection)
+
 		default:
 			log.Printf("got undefined typ: %v\n", typ)
 		}
@@ -239,7 +260,10 @@ func (t *TCP) readConnection(connection Connection) {
 			break
 		}
 
-		t.SendUpdatedBoard()
+		// log.Println("here")
+		// if connection.Ready {
+		// 	t.SendUpdatedBoard()
+		// }
 
 		// TODO: We need to trigger off which type we are passing in so we can
 		// update the client based on the insert/vote/quit here
@@ -253,29 +277,82 @@ func (t *TCP) readConnection(connection Connection) {
 	}
 }
 
-func (t *TCP) SendUpdatedBoard() {
+func (t *TCP) SendTopics(conn Connection) {
 	t.mutex.RLock()
+	topicMsgs, _, err := t.Board.ToBoardMessages()
+	if err != nil {
+		log.Println("error compiling board messages", err)
+		t.mutex.RUnlock()
+		return
+	}
 
+	for _, topic := range topicMsgs {
+		msg := topic.MarshalBinary()
+		var topicBytes shared.TopicBytes = msg
+		n, err := topicBytes.WriteTo(conn.Conn)
+		if err != nil {
+			log.Println(err)
+		}
+		log.Println(n)
+		log.Println(topicBytes[:n-6])
+		log.Printf("sent topic id %v\n", topic.Id)
+	}
+	t.mutex.RUnlock()
+}
+
+func (t *TCP) SendInitialBoardState(conn Connection) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 	_, stickyMsgs, err := t.Board.ToBoardMessages()
 	if err != nil {
 		log.Println("error compiling board messages", err)
 		return
 	}
 
-	for _, connection := range t.Connections {
-		// for _, topic := range topicMsgs {
-		// 	msg := topic.MarshalBinary()
-		// 	log.Println(msg)
-		// 	var topicBytes shared.TopicBytes = msg
-		// 	n, err := topicBytes.WriteTo(connection.Conn)
-		// 	if err != nil {
-		// 		log.Println(err)
-		// 	}
-		// 	log.Println(n)
-		// 	log.Println(topicBytes[:n-6])
-		// 	log.Printf("sent id %v\n", topic.Id)
-		// }
+	for _, sticky := range stickyMsgs {
+		var stickyBytes shared.StickyBytes = sticky.MarshalBinary()
+		n, err := stickyBytes.WriteTo(conn.Conn)
+		if err != nil {
+			log.Printf("error: %v\n", err)
+		}
+		log.Println(n)
+		log.Println(stickyBytes[:n-6])
+		log.Printf("sent %v\n", sticky.Id)
+	}
+}
 
+func (t *TCP) SendSpecificMsg(msg interface{}, msgType byte) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	for _, connection := range t.Connections {
+		switch msgType {
+		case shared.AddStickyType, shared.VoteStickyType:
+			sticky := msg.(shared.Sticky)
+			var stickyBytes shared.StickyBytes = sticky.MarshalBinary()
+			n, err := stickyBytes.WriteTo(connection.Conn)
+			if err != nil {
+				log.Printf("error: %v\n", err)
+			}
+			log.Println(n)
+			log.Println(stickyBytes[:n-6])
+			log.Printf("sent %v\n", sticky.Id)
+		}
+		log.Printf("sent to connection %v\n", connection.Id)
+	}
+}
+
+func (t *TCP) SendUpdatedBoard() {
+	t.mutex.RLock()
+
+	_, stickyMsgs, err := t.Board.ToBoardMessages()
+	if err != nil {
+		log.Println("error compiling board messages", err)
+		t.mutex.RUnlock()
+		return
+	}
+
+	for _, connection := range t.Connections {
 		for _, sticky := range stickyMsgs {
 			var stickyBytes shared.StickyBytes = sticky.MarshalBinary()
 			n, err := stickyBytes.WriteTo(connection.Conn)

@@ -48,6 +48,7 @@ type Model struct {
 	viewportHeight  int
 	viewportWidth   int
 	widthContent    int
+	TopicAck        bool
 	size            size
 }
 
@@ -68,10 +69,16 @@ func initialModel(conn net.Conn) Model {
 		ErrorMsg:      "",
 		CurrentTopic:  0,
 		textinput:     ti,
+		TopicAck:      false,
 	}
 }
 
 func (m Model) Init() tea.Cmd {
+	// testInitialTopics(m)
+	return initMessageHandler(m.Connection)
+}
+
+func testInitialTopics(m Model) {
 	var bytes [255]byte
 	stringThing := []byte("Topic 0 World")
 	if len(stringThing) <= 255 {
@@ -114,7 +121,6 @@ func (m Model) Init() tea.Cmd {
 	}
 	// topicView.findAndUpdateSticky(testStickyItem(1, 1, 1, 2, bytes))
 	topicView.appendSticky(testStickyItem(1, 1, 1, 2, bytes))
-	return initMessageHandler(m.Connection)
 }
 
 type ParentWidthChange struct {
@@ -188,9 +194,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ErrorMsg = string(msg.err.Error())
 
 	case Break:
-		fmt.Println("fuck")
-		fmt.Println(msg)
-		fmt.Println(m.ErrorMsg)
 		quit := shared.NewQuit(1)
 		var quitBytes shared.QuitBytes = quit.MarshalBinary()
 		_, err := quitBytes.WriteTo(m.Connection)
@@ -201,6 +204,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case shared.Sticky:
 		stickies = append(stickies, stickyItemFrom(msg))
+
+	case shared.Topic:
+		m.TopicViews[msg.Id] = newTopicView(msg)
+		if !m.TopicAck {
+			_, err := m.Connection.Write([]byte{1, 41})
+			if err != nil {
+				fmt.Println(err)
+				m.ErrorMsg = string(err.Error())
+			}
+			m.TopicAck = true
+		}
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -514,7 +528,7 @@ func RunTui() {
 			// p.Send(refactorHandleMessage(conn))
 		}
 	}()
-	// TODO: Add new protocol for acknowledgement
+
 	_, err = conn.Write([]byte{1, 42})
 	if err != nil {
 		fmt.Println(err)

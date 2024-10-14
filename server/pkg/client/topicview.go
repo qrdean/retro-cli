@@ -45,8 +45,11 @@ func newTestTopicViewWithList(id uint32, header [255]byte, stickyItem StickyItem
 
 func newTopicView(rawTopic shared.Topic) topicView {
 	focus := false
-	defaultList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	delegate := list.NewDefaultDelegate()
+	defaultList := list.New([]list.Item{}, delegate, 0, 0)
 	defaultList.SetShowHelp(false)
+	defaultList.SetWidth(25)
+	defaultList.SetHeight(35)
 	return topicView{focus: focus, id: rawTopic.Id, header: string(rawTopic.Header[:]), stickies: defaultList}
 }
 
@@ -65,8 +68,10 @@ func (t topicView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	t.stickies.SetWidth(t.parentWidthContext + 5)
 	t.stickies, cmd = t.stickies.Update(msg)
-	item := t.stickies.SelectedItem().(StickyItem)
-	t.currentItemId = item.id
+	if t.stickies.SelectedItem() != nil {
+		item := t.stickies.SelectedItem().(StickyItem)
+		t.currentItemId = item.id
+	}
 	return t, cmd
 }
 
