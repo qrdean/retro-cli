@@ -65,23 +65,23 @@ func initMessageHandler(conn net.Conn) tea.Cmd {
 func refactorHandleMessage(newReader io.Reader) interface{} {
 	// return func() tea.Msg {
 	// newReader := bufio.NewReader(conn)
-	// log.Println("handleing")
+	log.Println("handleing")
 	// msg := buf[:n]
 	// newReader := bytes.NewReader(msg)
 	var version byte
 	err := binary.Read(newReader, binary.BigEndian, &version)
 	if err != nil {
-		// log.Printf("%v\n", err)
+		log.Printf("%v\n", err)
 		return ErrMsg{err}
 	}
-	// log.Printf("version is %v\n", version)
+	log.Printf("version is %v\n", version)
 	var typ byte
 	err = binary.Read(newReader, binary.BigEndian, &typ)
 	if err != nil {
-		// log.Printf("%v\n", err)
+		log.Printf("%v\n", err)
 		return ErrMsg{err}
 	}
-	// log.Printf("typ is %v\n", typ)
+	log.Printf("typ is %v\n", typ)
 
 	switch typ {
 	case 0:
@@ -91,8 +91,9 @@ func refactorHandleMessage(newReader io.Reader) interface{} {
 		// log.Println("Received shutdown signal")
 		return Break(true)
 
-	case 43:
-		return TopicsDone(true)
+	// case 43:
+	// 	log.Println("topics done")
+	// 	return TopicsDone(true)
 
 	case 49:
 		var packet shared.Packet
@@ -124,15 +125,23 @@ func refactorHandleMessage(newReader io.Reader) interface{} {
 	case shared.TopicType:
 		// var topicBytes shared.TopicBytes = msg
 		var topicBytes shared.TopicBytes
-		_, err := topicBytes.ReadFrom(newReader)
+		n, err := topicBytes.ReadFrom(newReader)
 		if err != nil {
-			// log.Printf("%v\n", err)
+			log.Printf("%v\n", err)
 			return ErrMsg{err}
 		}
+		log.Println(n)
 
 		// log.Printf("ns len %v\n", ns)
-		// log.Printf("output to topic bytes %v\n", topicBytes)
+		log.Printf("output to topic bytes %v\n", topicBytes)
 		topic := topicBytes.UnmarshalTopic()
+		// var newTopicBytes shared.TopicBytes
+		// n, err = newTopicBytes.ReadFrom(newReader)
+		// if err != nil {
+		// 	log.Printf("%v\n", err)
+		// }
+		// log.Println(n)
+		// log.Printf("output to topic bytes %v\n", newTopicBytes)
 		// log.Printf("Id: %v, topic message: %v\n", topic.Id, string(topic.Header[:]))
 		return topic
 	case shared.StickyType:

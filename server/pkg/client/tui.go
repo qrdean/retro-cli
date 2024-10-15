@@ -50,6 +50,7 @@ type Model struct {
 	widthContent    int
 	TopicAck        bool
 	TopicNumber     uint32
+	ViewReady       bool
 	size            size
 }
 
@@ -215,6 +216,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case shared.Topic:
 		m.TopicViews[msg.Id] = newTopicView(msg)
+		fmt.Println("length of topics is", len(m.TopicViews))
 		if !m.TopicAck {
 			m.TopicAck = true
 			tp := m.TopicViews[msg.Id]
@@ -222,11 +224,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.TopicViews[msg.Id] = tp
 		}
 
-	case TopicsDone:
-		_, err := m.Connection.Write([]byte{1, 41})
-		if err != nil {
-			fmt.Println(err)
-			m.ErrorMsg = string(err.Error())
+		if len(m.TopicViews) == int(m.TopicNumber) {
+			_, err := m.Connection.Write([]byte{1, 41})
+			if err != nil {
+				fmt.Println(err)
+				m.ErrorMsg = string(err.Error())
+			}
+			m.ViewReady = true
 		}
 
 	case tea.KeyMsg:
@@ -312,190 +316,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m Model) Update2(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	switch msg := msg.(type) {
-	// case Init:
-	// 	fmt.Println("init")
-	// 	fmt.Println(msg)
-	// 	return m, refactorHandleMessage(m.Reader)
-	case ErrMsg:
-		// fmt.Println(msg.err.Error())
-		m.ErrorMsg = string(msg.err.Error())
-		return m, nil // refactorHandleMessage(m.Connection)
-	case Break:
-		// fmt.Println("breaking")
-		quit := shared.NewQuit(1)
-		var quitBytes shared.QuitBytes = quit.MarshalBinary()
-		_, err := quitBytes.WriteTo(m.Connection)
-		if err != nil {
-			// fmt.Println(err)
-			m.ErrorMsg = string(err.Error())
-		}
-		// fmt.Println("wrote %v bytes %v\n", n, quitBytes[:])
-		return m, tea.Quit
-
-	case shared.Sticky:
-		// fmt.Println("sticky")
-		// fmt.Println(msg.Id)
-		for idx, sticky := range m.Stickies {
-			if sticky.Id == msg.Id {
-				m.Stickies[idx] = msg
-				// log.Println("handling sticky exists")
-				return m, nil //refactorHandleMessage(m.Connection)
-			}
-		}
-
-		topic, ok := m.TopicViews[msg.TopicId]
-		var cmd tea.Cmd
-		if ok {
-			cmd = topic.findAndUpdateSticky(stickyItemFrom(msg))
-		}
-		// log.Println("handling sticky add")
-		m.Stickies = append(m.Stickies, msg)
-		// m.TopicViews[0].Update(msg)
-		// m.TopicViews[1].Update(msg)
-		// m.TopicViews[2].Update(msg)
-		return m, cmd //refactorHandleMessage(m.Connection)
-
-	case shared.Topic:
-		// fmt.Println("sticky")
-		// fmt.Println(msg.Id)
-		for idx, topic := range m.Topics {
-			if topic.Id == msg.Id {
-				m.Topics[idx] = msg
-				return m, nil // refactorHandleMessage(m.Connection)
-			}
-		}
-
-		m.TopicViews[msg.Id] = newTopicView(msg)
-		m.Topics = append(m.Topics, msg)
-		// m.TopicViews[0].Update(msg)
-		// m.TopicViews[1].Update(msg)
-		// m.TopicViews[2].Update(msg)
-		// return m, nil //refactorHandleMessage(m.Connection)
-
-	case shared.Pointer:
-		// fmt.Println("sticky")
-		// fmt.Println(msg.PointerId)
-		m.PointToSticky = msg.PointerId
-		// m.TopicViews[0].Update(msg)
-		// m.TopicViews[1].Update(msg)
-		// m.TopicViews[2].Update(msg)
-		// return m, nil // refactorHandleMessage(m.Connection)
-
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "a":
-			msg := "Hello Msg"
-			sticky, err := shared.NewAddSticky(1, 1, msg)
-			if err != nil {
-				// log.Println(err)
-				// continue
-			}
-			var stickyBytes shared.AddStickyBytes
-			stickyBytes = sticky.MarshalBinary()
-			_, err = stickyBytes.WriteTo(m.Connection)
-			if err != nil {
-				// fmt.Println(err)
-				m.ErrorMsg = string(err.Error())
-			}
-			// fmt.Printf("successfully wrote %v bytes %v\n", n, stickyBytes[:n-8])
-			return m, nil // refactorHandleMessage(m.Connection)
-		case "v":
-			// println(msg)
-			// int, err := strconv.Atoi(msg)
-			// if err != nil {
-			// 	log.Println(err)
-			// 	continue
-			// }
-			voteSticky := shared.NewVoteSticky(uint32(1))
-			var voteBytes shared.VoteBytes = voteSticky.MarshalBinary()
-			_, err := voteBytes.WriteTo(m.Connection)
-			if err != nil {
-				// fmt.Println(err)
-				m.ErrorMsg = string(err.Error())
-			}
-
-			// return m, nil
-			// fmt.Printf("wrote %v bytes %v\n", n, voteBytes[:])
-		case "p":
-			pointTo := shared.NewPointToSticky(uint32(1))
-			var pointToBytes shared.PointToStickyBytes = pointTo.MarshalBinary()
-			_, err := pointToBytes.WriteTo(m.Connection)
-			if err != nil {
-				// fmt.Println(err)
-				m.ErrorMsg = string(err.Error())
-			}
-			// return m, nil
-			// fmt.Printf("wrote %v bytes %v\n", n, pointToBytes[:])
-
-		// case "tab":
-		// 	m.TopicViews[curr]
-
-		case "ctrl+c", "q":
-			quit := shared.NewQuit(1)
-			var quitBytes shared.QuitBytes = quit.MarshalBinary()
-			_, err := quitBytes.WriteTo(m.Connection)
-			if err != nil {
-				// fmt.Println(err)
-				m.ErrorMsg = string(err.Error())
-			}
-			// fmt.Println("wrote %v bytes %v\n", n, quitBytes[:])
-			return m, tea.Quit
-		}
-	}
-
-	var cmds []tea.Cmd
-	for i, tv := range m.TopicViews {
-		z, c := tv.Update(msg)
-		x, ok := z.(topicView)
-		if ok {
-			m.TopicViews[i] = x
-		}
-		cmds = append(cmds, c)
-	}
-	cmd = tea.Batch(cmds...)
-
-	return m, cmd //refactorHandleMessage(m.Connection)
-}
-
 func (m Model) View() string {
-	// var s string
-	// s += fmt.Sprintf("length of stickies: %v and length of topics %v\n", len(m.Stickies), len(m.Topics))
-	// mapstring := make(map[uint32]ViewTopic)
-	// s += "\n"
-	// if m.ErrorMsg != "" {
-	// 	s += fmt.Sprintf("error msg: %v\n", m.ErrorMsg)
-	// }
-	//
-	// for _, topic := range m.Topics {
-	// 	newTopic := ViewTopic{Topic: topic}
-	// 	// news := ""
-	// 	// news += string(topic.Header[:])
-	// 	// news += "\n"
-	// 	mapstring[topic.Id] = newTopic
-	// }
-	//
-	// for _, sticky := range m.Stickies {
-	// 	viewTopic := mapstring[sticky.TopicId]
-	// 	viewTopic.Stickies = append(viewTopic.Stickies, sticky)
-	// 	mapstring[sticky.TopicId] = viewTopic
-	// }
-	//
-	// for _, viewTopic := range mapstring {
-	// 	s += fmt.Sprintf("Topic Name: %v\n", string(viewTopic.Topic.Header[:]))
-	// 	for _, sticky := range viewTopic.Stickies {
-	// 		s += fmt.Sprintf("%v votes: %v\n", string(sticky.StickyMessage[:]), sticky.Votes)
-	// 	}
-	// 	s += "\n"
-	// }
 
-	// var boardState string
-	// for _, viewTopic := range m.TopicViews {
-	// 	boardState += viewTopic.View()
-	// 	boardState += "\n"
-	// }
+	if !m.ViewReady {
+		return "Loading..."
+	}
 
 	var board string
 	if m.selectedMode {
@@ -531,7 +356,7 @@ func getBoardUpdated(m Model) string {
 	}
 	view = lipgloss.JoinHorizontal(
 		lipgloss.Left,
-		topicNumbers...
+		topicNumbers...,
 	)
 	return view
 }
@@ -581,7 +406,7 @@ func getBoard(m Model) string {
 }
 
 func RunTui() {
-	addr := "127.0.0.1:3000"
+	addr := "127.0.0.1:49000"
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		log.Fatal(err)
@@ -592,11 +417,10 @@ func RunTui() {
 
 	go func() {
 		// newReader := bufio.NewReader(conn)
-		newReader := bufio.NewReaderSize(conn, 4096*15)
+		newReader := bufio.NewReaderSize(conn, 4096*100)
 		for {
 			data := refactorHandleMessage(newReader)
 			p.Send(data)
-			// p.Send(refactorHandleMessage(conn))
 		}
 	}()
 

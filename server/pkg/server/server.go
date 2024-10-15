@@ -2,7 +2,6 @@ package server
 
 import (
 	"bufio"
-	// "bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -326,7 +325,13 @@ func (t *TCP) SendTopics(conn Connection) {
 		log.Printf("sent topic id %v\n", topic.Id)
 	}
 
-	conn.Conn.Write([]byte{1, 43})
+	// n, err := conn.Conn.Write([]byte{1, 43})
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+	// log.Println(n)
+	// log.Printf("sent ack for topics done \n")
+
 	t.mutex.RUnlock()
 }
 

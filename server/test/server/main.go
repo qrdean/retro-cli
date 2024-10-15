@@ -14,7 +14,7 @@ func main() {
 	log.Println("Starting Server")
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
-	tcpServer := server.NewTcpServer("127.0.0.1:3000")
+	tcpServer := server.NewTcpServer("127.0.0.1:49000")
 	log.Println("tcp server %v\n", tcpServer.Connections)
 	wg.Add(1)
 	
