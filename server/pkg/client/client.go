@@ -65,23 +65,18 @@ func initMessageHandler(conn net.Conn) tea.Cmd {
 func refactorHandleMessage(newReader io.Reader) interface{} {
 	// return func() tea.Msg {
 	// newReader := bufio.NewReader(conn)
-	log.Println("handleing")
 	// msg := buf[:n]
 	// newReader := bytes.NewReader(msg)
 	var version byte
 	err := binary.Read(newReader, binary.BigEndian, &version)
 	if err != nil {
-		log.Printf("%v\n", err)
 		return ErrMsg{err}
 	}
-	log.Printf("version is %v\n", version)
 	var typ byte
 	err = binary.Read(newReader, binary.BigEndian, &typ)
 	if err != nil {
-		log.Printf("%v\n", err)
 		return ErrMsg{err}
 	}
-	log.Printf("typ is %v\n", typ)
 
 	switch typ {
 	case 0:
@@ -99,12 +94,9 @@ func refactorHandleMessage(newReader io.Reader) interface{} {
 		var packet shared.Packet
 		_, err := packet.Byte.ReadFrom(newReader)
 		if err != nil {
-			log.Println(err)
 			return ErrMsg{err}
 		}
 		length := shared.UnmarshalPointerTopicLength(packet.Byte)
-
-		log.Printf("topic length: %v", length)
 
 		return TopicLength(length)
 
@@ -113,64 +105,36 @@ func refactorHandleMessage(newReader io.Reader) interface{} {
 		var pointerBytes shared.PointerBytes
 		_, err := pointerBytes.ReadFrom(newReader)
 		if err != nil {
-			// log.Printf("%v\n", err)
 			return ErrMsg{err}
 		}
 
-		// log.Printf("ns len %v\n", ns)
-		// log.Printf("output to pointer bytes %v\n", pointerBytes)
 		pointer := pointerBytes.UnmarshalPointer()
-		// log.Printf("Id: %v\n", pointer.PointerId)
 		return pointer
 	case shared.TopicType:
 		// var topicBytes shared.TopicBytes = msg
 		var topicBytes shared.TopicBytes
-		n, err := topicBytes.ReadFrom(newReader)
+		_, err := topicBytes.ReadFrom(newReader)
 		if err != nil {
-			log.Printf("%v\n", err)
 			return ErrMsg{err}
 		}
-		log.Println(n)
 
-		// log.Printf("ns len %v\n", ns)
-		log.Printf("output to topic bytes %v\n", topicBytes)
 		topic := topicBytes.UnmarshalTopic()
-		// var newTopicBytes shared.TopicBytes
-		// n, err = newTopicBytes.ReadFrom(newReader)
-		// if err != nil {
-		// 	log.Printf("%v\n", err)
-		// }
-		// log.Println(n)
-		// log.Printf("output to topic bytes %v\n", newTopicBytes)
-		// log.Printf("Id: %v, topic message: %v\n", topic.Id, string(topic.Header[:]))
 		return topic
 	case shared.StickyType:
 		// var stickyBytes shared.StickyBytes = msg
 		var stickyBytes shared.StickyBytes
 		_, err := stickyBytes.ReadFrom(newReader)
 		if err != nil {
-			// log.Printf("%v\n", err)
 			return ErrMsg{err}
 		}
 
-		// log.Printf("ns len %v\n", ns)
-		// log.Printf("output to sticky bytes %v\n", stickyBytes)
 		sticky := stickyBytes.UnmarshalBinaryStick()
-		// log.Printf("Id: %v, topic id: %v, poster id:%v, votes: %v, sticky message: %v\n",
-		// 	sticky.Id,
-		// 	sticky.TopicId,
-		// 	sticky.PosterId,
-		// 	sticky.Votes,
-		// 	string(sticky.StickyMessage[:]),
-		// )
 		return sticky
-	default:
-		log.Printf("not a valid action %v\n", typ)
+	// default:
+		// log.Printf("not a valid action %v\n", typ)
 	}
 
-	// log.Printf("output from: %v\n", msg)
-	return nil //Init(true)
-	// }
+	return nil
 }
 
 func ConnectAndRead(addr string) {

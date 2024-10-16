@@ -123,7 +123,10 @@ func (m *TopicBytes) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	*m = make([]byte, size)
-	o, err := r.Read(*m)
+	o, err := io.ReadFull(r, *m)
+	if err != nil {
+  	return n, err
+	}
 
 	return n + int64(o), err
 }
@@ -158,7 +161,6 @@ func (m StickyBytes) WriteTo(w io.Writer) (int64, error) {
 	n += 4
 
 	bytesToWrite, err = binary.Append(bytesToWrite, binary.BigEndian, m)
-	log.Printf("%v", bytesToWrite)
 	o, err := w.Write(bytesToWrite)
 	if err != nil {
 		return n, err

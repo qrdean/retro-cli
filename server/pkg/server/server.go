@@ -360,21 +360,27 @@ func (t *TCP) SendSpecificMsg(msg interface{}, msgType byte) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
+	var wg sync.WaitGroup
 	for _, connection := range t.Connections {
-		switch msgType {
-		case shared.AddStickyType, shared.VoteStickyType:
-			sticky := msg.(shared.Sticky)
-			var stickyBytes shared.StickyBytes = sticky.MarshalBinary()
-			n, err := stickyBytes.WriteTo(connection.Conn)
-			if err != nil {
-				log.Printf("error: %v\n", err)
+		wg.Add(1)
+		go func() {
+			switch msgType {
+			case shared.AddStickyType, shared.VoteStickyType:
+				sticky := msg.(shared.Sticky)
+				var stickyBytes shared.StickyBytes = sticky.MarshalBinary()
+				n, err := stickyBytes.WriteTo(connection.Conn)
+				if err != nil {
+					log.Printf("error: %v\n", err)
+				}
+				log.Println(n)
+				log.Println(stickyBytes[:n-6])
+				log.Printf("sent %v\n", sticky.Id)
 			}
-			log.Println(n)
-			log.Println(stickyBytes[:n-6])
-			log.Printf("sent %v\n", sticky.Id)
-		}
-		log.Printf("sent to connection %v\n", connection.Id)
+			log.Printf("sent to connection %v\n", connection.Id)
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 func (t *TCP) SendUpdatedBoard() {

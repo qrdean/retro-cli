@@ -77,7 +77,7 @@ func initialModel(conn net.Conn) Model {
 
 func (m Model) Init() tea.Cmd {
 	// testInitialTopics(m)
-	return initMessageHandler(m.Connection)
+	return nil
 }
 
 func testInitialTopics(m Model) {
@@ -216,7 +216,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case shared.Topic:
 		m.TopicViews[msg.Id] = newTopicView(msg)
-		fmt.Println("length of topics is", len(m.TopicViews))
 		if !m.TopicAck {
 			m.TopicAck = true
 			tp := m.TopicViews[msg.Id]
@@ -417,7 +416,7 @@ func RunTui() {
 
 	go func() {
 		// newReader := bufio.NewReader(conn)
-		newReader := bufio.NewReaderSize(conn, 4096*100)
+		newReader := bufio.NewReaderSize(conn, 4096)
 		for {
 			data := refactorHandleMessage(newReader)
 			p.Send(data)
